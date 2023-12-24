@@ -1,55 +1,8 @@
 import numpy as np
 import py_trees
 import py_trees.console as console
-import pypolo
 import matplotlib.pyplot as plt
 
-class Agent(py_trees.behaviour.Behaviour):
-    def __init__(self,rng, model, strategy, sensor, evaluator, robotID):
-
-        self.rng = rng
-        self.model = model
-        self.strategy = strategy
-        self.sensor = sensor
-        self.evaluator = evaluator
-        self.robotID = robotID
-        self.stepCount = 0
-        name = "Agent%03d" % self.robotID
-        super().__init__(name)
-
-        self.pub = py_trees.blackboard.Client(name=name, namespace=name)
-        self.pub.register_key(key="/%s/status" % self.name , access=py_trees.common.Access.WRITE)
-        self.pub.register_key(key="/%s/x" % self.name, access=py_trees.common.Access.WRITE)
-        self.pub.register_key(key="/%s/y" % self.name, access=py_trees.common.Access.WRITE)
-        self.pub.register_key(key="/%s/z" % self.name, access=py_trees.common.Access.WRITE)
-
-
-    def update(self):
-        x_new = self.strategy.get(model=self.model)
-        y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
-        self.model.add_data(x_new, y_new)
-        self.model.optimize(num_iter=len(y_new), verbose=False)
-        mean, std, error = self.evaluator.eval_prediction(self.model)
-
-        self.stepCount += 1
-
-        msg = f"[robot {self.robotID}]: step = {self.stepCount} gp = {np.sum(mean):.3f} +/- {np.sum(std):.3f} | err {np.sum(error):.3f}"
-        self.logger.debug(msg)
-        console.info(console.green + msg + console.reset)
-
-        # print(x_new.shape, y_new.shape)
-
-        status = "exploring"
-        self.pub.set("/%s/status" % self.name, status)
-        self.pub.set("/%s/x" % self.name, x_new[0, 0])
-        self.pub.set("/%s/y" % self.name, x_new[0, 1])
-        self.pub.set("/%s/z" % self.name, y_new[0, 0])
-
-
-        return self.status.SUCCESS
-
-    def finished(self)->bool:
-        pass
 
 
 class Visualization(py_trees.behaviour.Behaviour):
@@ -80,6 +33,9 @@ class Visualization(py_trees.behaviour.Behaviour):
         # Initialize an empty dictionary
         data_dict = {}
 
+        if len(input_string) < 1:
+            return  data_dict
+
         # Iterate through each line and extract key-value pairs
         for line in lines:
 
@@ -100,16 +56,79 @@ class Visualization(py_trees.behaviour.Behaviour):
             if agent_id not in data_dict:
                 data_dict[agent_id] = {}
 
-            # Convert float values from string to float
-            if key in ['x', 'y', 'z']:
-                value = float(value)
+            try:
+                # Convert float values from string to float
+                if key in ['x', 'y', 'z']:
+                    value = float(value)
 
-            # Store key-value pair in the nested dictionary
-            data_dict[agent_id][key] = value
+                # Store key-value pair in the nested dictionary
+                data_dict[agent_id][key] = value
 
-
+            except:
+                pass
         # Print the resulting dictionary
         return data_dict
 
+
+class Agent(py_trees.behaviour.Behaviour):
+    def __init__(self,rng, model, strategy, sensor, evaluator, robotID):
+
+        self.rng = rng
+        self.model = model
+        self.strategy = strategy
+        self.sensor = sensor
+        self.evaluator = evaluator
+        self.robotID = robotID
+        self.stepCount = 0
+        name = "Agent%03d" % self.robotID
+        super().__init__(name)
+
+        self.pub = py_trees.blackboard.Client(name=name, namespace=name)
+        self.pub.register_key(key="/%s/status" % self.name , access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/x" % self.name, access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/y" % self.name, access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/z" % self.name, access=py_trees.common.Access.WRITE)
+
+
+    def check_collision(self, x, y):
+
+        for robotName, robotState in Visualization.decode().items():
+            if robotName != self.name:
+                if 'x' in robotState and 'y' in robotState:
+                    dx = x - robotState['x']
+                    dy = y - robotState['y']
+                    dist = np.sqrt(dx * dx + dy * dy)
+                    if dist < 1.0:
+                        return True
+        return False
+
+
+
+    def update(self):
+        x_new = self.strategy.get(model=self.model)
+        y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
+        self.model.add_data(x_new, y_new)
+        self.model.optimize(num_iter=len(y_new), verbose=False)
+        mean, std, error = self.evaluator.eval_prediction(self.model)
+
+        self.stepCount += 1
+
+        msg = f"[robot {self.robotID}]: step = {self.stepCount} gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {np.mean(error):.3f}"
+        self.logger.debug(msg)
+
+        collision = False
+        if self.check_collision(x_new[0, 0], x_new[0, 1]):
+            console.info(console.red + msg + console.reset)
+            collision = True
+        # print(x_new.shape, y_new.shape)
+
+        status = "exploring" if not collision else "collision"
+        self.pub.set("/%s/status" % self.name, status)
+        self.pub.set("/%s/x" % self.name, x_new[0, 0])
+        self.pub.set("/%s/y" % self.name, x_new[0, 1])
+        self.pub.set("/%s/z" % self.name, y_new[0, 0])
+
+
+        return self.status.SUCCESS
 
 

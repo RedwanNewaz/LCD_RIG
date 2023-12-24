@@ -25,7 +25,7 @@ def get_pilot_data(args, rng, sensor):
 
 def get_robot(x_init, args):
     robot = pypolo.robots.USV(
-        init_state=np.array([x_init[-1, 0], x_init[-1, 1], np.pi / 2]),
+        init_state=np.array([x_init[0], x_init[1], np.pi / 2]),
         control_rate=args.control_rate,
         max_lin_vel=args.max_lin_vel,
         tolerance=args.tolerance,
@@ -90,7 +90,7 @@ def get_strategy(args, rng, robot):
 
 
 
-def run(args, rng, model, strategy, sensor, evaluator, logger):
+def run(args, agents, sensor):
 
     ####################
     # create tree
@@ -99,13 +99,10 @@ def run(args, rng, model, strategy, sensor, evaluator, logger):
         name="MultiAgent",
         policy=py_trees.common.ParallelPolicy.SuccessOnOne()
     )
-    # root = py_trees.composites.Sequence(name="MultiAgent")
-    agent1 = Agent(rng, model, strategy, sensor, evaluator, 1)
-    agent2 = Agent(rng, model, strategy, sensor, evaluator, 2)
-    agent3 = Agent(rng, model, strategy, sensor, evaluator, 3)
+
 
     viz = Visualization(args.task_extent, sensor)
-    root.add_children([agent1, agent2, agent3])
+    root.add_children(agents)
 
     task = py_trees.composites.Sequence("Sequence", True)
     task.add_children([root, viz])
@@ -134,6 +131,41 @@ def save(args, evaluator, logger):
     evaluator.save(save_dir)
     logger.save(save_dir)
 
+def get_robots_init_locs(task_extent, N):
+    """
+        parameters
+        ----------
+            task_extent: bounding box for target area [xmin, xmax, ymin, ymax]
+            N: number of robots
+    """
+    x_rand = np.random.uniform(task_extent[0], task_extent[1], N)
+    y_rand = np.random.uniform(task_extent[2], task_extent[3], N)
+    Xinits = np.column_stack([x_rand, y_rand])
+    return Xinits
+
+
+def get_gp_models(args, sensor, rng, Xinits):
+    def isValidLocation(x):
+        """
+        @param x : sample location
+        @return true if sample within the bounding box (task_extent)
+        """
+        xmin, xmax, ymin, ymax = args.task_extent
+        return x[0] >= xmin and x[0] < xmax and x[1] >= ymin and x[1] < ymax
+
+    bezier = pypolo.strategies.Bezier(task_extent=args.task_extent, rng=rng)
+
+    models = []
+    for x0 in Xinits:
+        x_samples = bezier.get(num_states=args.num_init_samples)
+        # add random initial location of robot
+        x_init = np.array([ x + x0 for x in x_samples if isValidLocation(x + x0)])
+        y_init = sensor.sense(states=x_init, rng=rng).reshape(-1, 1)
+        # construct gp model with initial samples
+        model = get_model(args, x_init, y_init)
+        models.append(model)
+
+    return models
 
 def main():
     args = pypolo.experiments.argparser.parse_arguments()
@@ -143,18 +175,23 @@ def main():
     env = pypolo.experiments.environments.get_environment(
         args.env_name, data_path)
     sensor = get_sensor(args, env)
-    x_init, y_init = get_pilot_data(args, rng, sensor)
-    robot = get_robot(x_init, args)
-    model = get_model(args, x_init, y_init)
-    evaluator = get_evaluator(args, sensor)
-    logger = pypolo.experiments.Logger(evaluator.eval_outputs)
-    mean, std, error = evaluator.eval_prediction(model)
-    logger.append(mean, std, error, x_init, y_init, model.num_train)
-    strategy = get_strategy(args, rng, robot)
+    num_agents = 3
+    Xinits = get_robots_init_locs(args.task_extent, num_agents)
+    gpModels = get_gp_models(args, sensor, rng, Xinits)
+    robots = [get_robot(x_init, args) for x_init in Xinits]
+    agents = []
+    for i in range(num_agents):
+        robot = robots[i]
+        model = gpModels[i]
+        evaluator = get_evaluator(args, sensor)
+        strategy = get_strategy(args, rng, robot)
+        agent = Agent(rng, model, strategy, sensor, evaluator, i + 1)
+        agents.append(agent)
+
     start = time()
-    run(args, rng, model, strategy, sensor, evaluator, logger)
+    run(args, agents, sensor)
     end = time()
-    save(args, evaluator, logger)
+    # save(args, evaluator, logger)
     print(f"Time used: {end - start:.1f} seconds")
 
 
