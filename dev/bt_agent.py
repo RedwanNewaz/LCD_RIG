@@ -1,0 +1,115 @@
+import numpy as np
+import py_trees
+import py_trees.console as console
+import pypolo
+import matplotlib.pyplot as plt
+
+class Agent(py_trees.behaviour.Behaviour):
+    def __init__(self,rng, model, strategy, sensor, evaluator, robotID):
+
+        self.rng = rng
+        self.model = model
+        self.strategy = strategy
+        self.sensor = sensor
+        self.evaluator = evaluator
+        self.robotID = robotID
+        self.stepCount = 0
+        name = "Agent%03d" % self.robotID
+        super().__init__(name)
+
+        self.pub = py_trees.blackboard.Client(name=name, namespace=name)
+        self.pub.register_key(key="/%s/status" % self.name , access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/x" % self.name, access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/y" % self.name, access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/z" % self.name, access=py_trees.common.Access.WRITE)
+
+
+    def update(self):
+        x_new = self.strategy.get(model=self.model)
+        y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
+        self.model.add_data(x_new, y_new)
+        self.model.optimize(num_iter=len(y_new), verbose=False)
+        mean, std, error = self.evaluator.eval_prediction(self.model)
+
+        self.stepCount += 1
+
+        msg = f"[robot {self.robotID}]: step = {self.stepCount} gp = {np.sum(mean):.3f} +/- {np.sum(std):.3f} | err {np.sum(error):.3f}"
+        self.logger.debug(msg)
+        console.info(console.green + msg + console.reset)
+
+        # print(x_new.shape, y_new.shape)
+
+        status = "exploring"
+        self.pub.set("/%s/status" % self.name, status)
+        self.pub.set("/%s/x" % self.name, x_new[0, 0])
+        self.pub.set("/%s/y" % self.name, x_new[0, 1])
+        self.pub.set("/%s/z" % self.name, y_new[0, 0])
+
+
+        return self.status.SUCCESS
+
+    def finished(self)->bool:
+        pass
+
+
+class Visualization(py_trees.behaviour.Behaviour):
+    name = "visualization"
+    def __init__(self, task_extent, sensor):
+        super().__init__(self.name)
+        self.task_extent = task_extent
+        self.sensor = sensor
+
+    def update(self):
+        state = self.decode()
+        plt.cla()
+        plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
+                   extent=self.sensor.env.extent)
+        for key, value in state.items():
+            # print(key, value)
+            plt.scatter(value['x'], value['y'], alpha=0.6)
+        plt.axis(self.task_extent)
+        plt.pause(1e-2)
+        return self.status.SUCCESS
+
+    @staticmethod
+    def decode():
+        input_string = py_trees.display.unicode_blackboard()
+        # Split the input string into lines
+        lines = input_string.strip().split('\n')
+
+        # Initialize an empty dictionary
+        data_dict = {}
+
+        # Iterate through each line and extract key-value pairs
+        for line in lines:
+
+            if ":" not in line:
+                continue
+
+            line = line.replace('\x1b[33m', '').replace('\x1b[37m', '')
+            # Split each line into key and value
+            key, value = map(str.strip, line.split(':'))
+
+            # Extract agent ID from the key
+            agent_id = key.split('/')[1].strip()
+
+            # Remove leading "/" from the key
+            key = key.split('/')[2].strip()
+
+            # Create a nested dictionary for each agent ID if not already present
+            if agent_id not in data_dict:
+                data_dict[agent_id] = {}
+
+            # Convert float values from string to float
+            if key in ['x', 'y', 'z']:
+                value = float(value)
+
+            # Store key-value pair in the nested dictionary
+            data_dict[agent_id][key] = value
+
+
+        # Print the resulting dictionary
+        return data_dict
+
+
+

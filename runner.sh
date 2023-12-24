@@ -10,4 +10,13 @@ srig()
     --seed 0
 }
 
-srig
+lcdrig()
+{
+  PY_FILE="main_lcd_rig.py"
+  $PYTHON $PY_FILE  --config "AK/experiments/configs/ak.yaml" \
+    --env-name "N45W123" \
+    --strategy "myopic" \
+    --seed 1
+}
+
+lcdrig
