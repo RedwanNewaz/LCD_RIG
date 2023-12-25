@@ -3,6 +3,7 @@ import py_trees
 import py_trees.console as console
 import matplotlib.pyplot as plt
 import quads
+from py_trees import common
 
 
 class Visualization(py_trees.behaviour.Behaviour):
@@ -26,12 +27,14 @@ class Visualization(py_trees.behaviour.Behaviour):
         plt.cla()
         plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
                    extent=self.sensor.env.extent)
-        for key, value in state.items():
-            # print(key, value)
-            plt.scatter(value['x'], value['y'], alpha=0.6)
-            self.tree.insert(quads.Point(value['x'], value['y'], data=key))
+        for _, val in state.items():
+            for key, value in val.items():
+                if isinstance(value, list) and key == 'xyz':
+                    plt.scatter(value[0], value[1], alpha=0.6)
+                    self.tree.insert(quads.Point(value[0], value[1], data=key))
 
-        if self.step_count > 0 and self.step_count % 100 == 0:
+
+        if self.step_count > 0 and self.step_count % 300 == 0:
             quads.visualize(self.tree)
         plt.axis(self.task_extent)
         plt.pause(1e-2)
@@ -72,9 +75,10 @@ class Visualization(py_trees.behaviour.Behaviour):
 
             try:
                 # Convert float values from string to float
-                if key in ['x', 'y', 'z']:
-                    value = float(value)
-
+                # if key in ['x', 'y', 'z']:
+                #     value = float(value)
+                if key in ['xyz']:
+                    value = list(map(float, value.split(',')))
                 # Store key-value pair in the nested dictionary
                 data_dict[agent_id][key] = value
 
@@ -82,6 +86,76 @@ class Visualization(py_trees.behaviour.Behaviour):
                 pass
         # Print the resulting dictionary
         return data_dict
+
+
+class CollisionChecker(py_trees.behaviour.Behaviour):
+    def __init__(self, x, y, tree, robot_radius, name):
+        self.x = x
+        self.y = y
+        self.tree = tree
+        self.robot_radius = robot_radius
+        self.__range = 2
+        super(CollisionChecker, self).__init__(f"{name}/collision_checker")
+
+    def check_nei_range(self, x, y, tree, range):
+
+        bb = quads.BoundingBox(min_x=x-range, min_y=y-range, max_x=x+range, max_y=y+range)
+        for _ in tree.within_bb(bb):
+            return True
+        return False
+    def update(self):
+        status = self.check_nei_range(self.x, self.y, self.tree, self.__range * self.robot_radius)
+        if status:
+            msg = f"[{self.name}] : collide"
+            console.info(console.red + msg + console.reset)
+
+        return self.status.SUCCESS if status else self.status.FAILURE
+
+
+class Communicator(py_trees.behaviour.Behaviour):
+    def __init__(self, x, y, tree, robot_radius, name):
+        self.x = x
+        self.y = y
+        self.tree = tree
+        self.robot_radius = robot_radius
+        self.__range = 4
+        super(Communicator, self).__init__(f"{name}/communicator")
+
+    def get_neighbors(self, x, y, tree, range):
+        bb = quads.BoundingBox(min_x=x - range, min_y=y - range, max_x=x + range, max_y=y + range)
+        agents = []
+        for point in tree.within_bb(bb):
+            agents.append(point.data)
+        return agents
+
+    def update(self):
+        for k, nei in enumerate(self.get_neighbors(self.x, self.y, self.tree, self.__range * self.robot_radius)):
+            console.info(console.green + f"[{self.name}]: -> ({k + 1}) {nei}" + console.reset)
+        return self.status.SUCCESS
+
+
+class Explorer(py_trees.behaviour.Behaviour):
+    def __init__(self, x_new, rng, model, evaluator, sensor, pub, name):
+        self.x_new = x_new
+        self.rng = rng
+        self.model = model
+        self.evaluator = evaluator
+        self.sensor = sensor
+        self.pub = pub
+        self.parent_name = name
+        super(Explorer, self).__init__(f"{name}/explorer")
+
+
+    def update(self) -> common.Status:
+        y_new = self.sensor.sense(self.x_new, self.rng).reshape(-1, 1)
+        self.model.add_data(self.x_new, y_new)
+        self.model.optimize(num_iter=len(y_new), verbose=False)
+        mean, std, error = self.evaluator.eval_prediction(self.model)
+        msg = f"[{self.name}]:  gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {np.mean(error):.3f}"
+        self.logger.debug(msg)
+        self.pub.set("/%s/xyz" % self.parent_name, f"{self.x_new[0, 0]},{self.x_new[0, 1]},{y_new[0, 0]}")
+
+        return self.status.SUCCESS
 
 
 class Agent(py_trees.behaviour.Behaviour):
@@ -99,10 +173,7 @@ class Agent(py_trees.behaviour.Behaviour):
         super().__init__(name)
 
         self.pub = py_trees.blackboard.Client(name=name, namespace=name)
-        self.pub.register_key(key="/%s/status" % self.name , access=py_trees.common.Access.WRITE)
-        self.pub.register_key(key="/%s/x" % self.name, access=py_trees.common.Access.WRITE)
-        self.pub.register_key(key="/%s/y" % self.name, access=py_trees.common.Access.WRITE)
-        self.pub.register_key(key="/%s/z" % self.name, access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/xyz" % self.name , access=py_trees.common.Access.WRITE)
 
         self.explorationTree = quads.QuadTree( (0, 0), 22, 22, capacity=4)
 
@@ -111,80 +182,34 @@ class Agent(py_trees.behaviour.Behaviour):
             (0, 0),
             40, 40
          )
-        for robotName, robotState in Visualization.decode().items():
-            if robotName != self.name:
-                if 'x' in robotState and 'y' in robotState:
-                    point = quads.Point(robotState['x'], robotState['y'], data=robotName)
+        state = Visualization.decode()
+        for robotName, val in state.items():
+            for key, robotState in val.items():
+                if isinstance(robotState, list) and key == 'xyz':
+                    point = quads.Point(robotState[0], robotState[1], data=robotName)
                     tree.insert(point, data=robotName)
-
         return tree
-
-    def get_neighbors(self, x, y, tree, range):
-        bb = quads.BoundingBox(min_x=x - range, min_y=y - range, max_x=x + range, max_y=y + range)
-
-        agents = []
-        for point in tree.within_bb(bb):
-            agents.append(point.data)
-        return agents
-
-    def check_nei_range(self, x, y, tree, range):
-
-        bb = quads.BoundingBox(min_x=x-range, min_y=y-range, max_x=x+range, max_y=y+range)
-        for _ in tree.within_bb(bb):
-            return True
-        return False
-
-        # robotRadius = 0.5
-        # for robotName, robotState in Visualization.decode().items():
-        #     if robotName != self.name:
-        #         if 'x' in robotState and 'y' in robotState:
-        #             dx = x - robotState['x']
-        #             dy = y - robotState['y']
-        #             dist = np.sqrt(dx * dx + dy * dy)
-        #             if dist < 2 * robotRadius:
-        #                 return True
-        # return False
-
-
 
 
     def update(self):
 
         self.strategy(exploration_tree=self.explorationTree)
         x_new = self.strategy.get(model=self.model)
-        y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
-        self.model.add_data(x_new, y_new)
-        self.model.optimize(num_iter=len(y_new), verbose=False)
-        mean, std, error = self.evaluator.eval_prediction(self.model)
 
+        tree = self.find_neighbors()
+        x, y = x_new[0, 0], x_new[0, 1]
+        collision_checker = CollisionChecker(x, y, tree, self.robot_radius, self.name)
+        communicator = Communicator(x, y, tree, self.robot_radius, self.name)
+        explorer = Explorer(x_new, self.rng, self.model, self.evaluator, self.sensor, self.pub, self.name)
 
+        root = py_trees.composites.Sequence(name="Sequence", memory=True)
+        selector = py_trees.composites.Selector(name="Selector", memory=False)
+        selector.add_children([collision_checker, communicator])
+        root.add_children([selector, explorer])
 
-        self.stepCount += 1
-
-        msg = f"[robot {self.robotID}]: step = {self.stepCount} gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {np.mean(error):.3f}"
-        self.logger.debug(msg)
-
-        nei_tree = self.find_neighbors()
-        collision = False
-        communicating = False
-        if self.check_nei_range(x_new[0, 0], x_new[0, 1], nei_tree, 2 * self.robot_radius):
-            console.info(console.red + msg + console.reset)
-            collision = True
-        else:
-            for k, nei in enumerate(self.get_neighbors(x_new[0, 0], x_new[0, 1], nei_tree, 4 * self.robot_radius)):
-                console.info(console.green + f"[robot {self.robotID}]: -> ({k + 1}) {nei}"  + console.reset)
-                communicating = True
-
-        status = "collision"  if collision else "communicating" if communicating else "exploring"
-
-        self.pub.set("/%s/status" % self.name, status)
-        self.pub.set("/%s/x" % self.name, x_new[0, 0])
-        self.pub.set("/%s/y" % self.name, x_new[0, 1])
-        self.pub.set("/%s/z" % self.name, y_new[0, 0])
-
+        root.tick_once()
         self.explorationTree.insert(quads.Point(x_new[0, 0], x_new[0, 1], data=self.name))
-
-
-        return self.status.SUCCESS
+        self.stepCount += 1
+        return root.status
 
 
