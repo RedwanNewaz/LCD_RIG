@@ -122,9 +122,13 @@ class Agent(py_trees.behaviour.Behaviour):
         explorer = Explorer(x_new, self.rng, self.model, self.evaluator, self.sensor, self.pub, self.name)
 
         root = py_trees.composites.Sequence(name="Sequence", memory=True)
-        selector = py_trees.composites.Selector(name="Selector", memory=False)
-        selector.add_children([collision_checker, communicator])
-        root.add_children([selector, explorer])
+        # selector = py_trees.composites.Selector(name="Selector", memory=False)
+        # selector.add_children([collision_checker, communicator])
+        # root.add_children([selector, explorer])
+        safety_checker = py_trees.decorators.Inverter(
+            name="Inverter", child=collision_checker
+        )
+        root.add_children([safety_checker, communicator, explorer])
 
         root.tick_once()
         self.explorationTree.insert(quads.Point(x_new[0, 0], x_new[0, 1], data=self.name))

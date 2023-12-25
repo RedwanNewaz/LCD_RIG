@@ -97,7 +97,8 @@ def run(args, agents, sensor):
     ####################
     root = py_trees.composites.Parallel(
         name="MultiAgent",
-        policy=py_trees.common.ParallelPolicy.SuccessOnOne()
+        policy=py_trees.common.ParallelPolicy.SuccessOnAll()
+        # policy=py_trees.common.ParallelPolicy.SuccessOnOne()
     )
 
 
@@ -115,6 +116,8 @@ def run(args, agents, sensor):
     simStep = 0
     while simStep < args.max_num_samples:
         behaviour_tree.tick()
+        if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
+            break
         simStep += 1
 
 
