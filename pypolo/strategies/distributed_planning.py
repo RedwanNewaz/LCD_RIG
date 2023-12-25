@@ -1,12 +1,11 @@
 from typing import List
-
 import numpy as np
-
 from ..objectives.entropy import gaussian_entropy
 from ..models import IModel
 from .strategy import IStrategy
 from ..robots import IRobot
-import quads
+
+import random
 
 class DistributedPlanning(IStrategy):
     """Distributed myopic informative planning."""
@@ -61,20 +60,26 @@ class DistributedPlanning(IStrategy):
             raise ValueError("`num_states` must be 1 in InformativePlanning.")
         while len(self.robot.sampling_locations) == 0:
             # TODO from exploration tree compute candidate locations
+
+            task_extent = self.task_extent.copy()
             if "exploration_tree" in self.additional_parameter:
-                exploration_tree = self.additional_parameter["exploration_tree"]
-                bb = quads.BoundingBox(min_x=self.task_extent[0], min_y=self.task_extent[2], max_x=self.task_extent[1], max_y=self.task_extent[3])
-                points = exploration_tree.within_bb(bb)
-                # print(len(points))
+
+                prob = np.random.normal()
+                if prob < 0.8:
+                    exploration_tree = self.additional_parameter["exploration_tree"]
+                    rects = exploration_tree.sortedRect()[::-1] # sort largest to smallest
+                    task_extent = random.choice(rects[:min(5, len(rects))]).box()
+                    # print(task_extent)
+
             # Propose candidate locations
             xs = self.rng.uniform(
-                low=self.task_extent[0],
-                high=self.task_extent[1],
+                low=task_extent[0],
+                high=task_extent[1],
                 size=self.num_candidates,
             )
             ys = self.rng.uniform(
-                low=self.task_extent[2],
-                high=self.task_extent[3],
+                low=task_extent[2],
+                high=task_extent[3],
                 size=self.num_candidates,
             )
             candidate_states = np.column_stack((xs, ys))
@@ -92,7 +97,11 @@ class DistributedPlanning(IStrategy):
             goal_states = candidate_states[sorted_indices[-num_states:]]
             self.robot.goal_states.append(goal_states.ravel())
             # Controling and sampling
+            # count = 0
             while self.robot.has_goal:
                 self.robot.update(*self.robot.control())
+                # count += 1
+                # if count == 3:
+                #     break
         x_new = self.robot.commit_data()
         return x_new

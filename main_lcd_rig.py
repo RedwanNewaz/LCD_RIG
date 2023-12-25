@@ -97,8 +97,8 @@ def run(args, agents, sensor):
     ####################
     root = py_trees.composites.Parallel(
         name="MultiAgent",
-        policy=py_trees.common.ParallelPolicy.SuccessOnAll()
-        # policy=py_trees.common.ParallelPolicy.SuccessOnOne()
+        # policy=py_trees.common.ParallelPolicy.SuccessOnAll()
+        policy=py_trees.common.ParallelPolicy.SuccessOnOne()
     )
 
 
@@ -116,8 +116,8 @@ def run(args, agents, sensor):
     simStep = 0
     while simStep < args.max_num_samples:
         behaviour_tree.tick()
-        if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
-            break
+        # if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
+        #     break
         simStep += 1
 
 
@@ -188,7 +188,7 @@ def main():
         model = gpModels[i]
         evaluator = get_evaluator(args, sensor)
         strategy = get_strategy(args, rng, robot)
-        agent = Agent(rng, model, strategy, sensor, evaluator, i + 1)
+        agent = Agent(rng, model, strategy, sensor, evaluator, args.task_extent, i + 1)
         agents.append(agent)
 
     start = time()
