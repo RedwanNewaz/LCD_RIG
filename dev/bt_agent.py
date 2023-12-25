@@ -149,11 +149,15 @@ class Agent(py_trees.behaviour.Behaviour):
 
 
     def update(self):
+
+        self.strategy(exploration_tree=self.explorationTree)
         x_new = self.strategy.get(model=self.model)
         y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
         self.model.add_data(x_new, y_new)
         self.model.optimize(num_iter=len(y_new), verbose=False)
         mean, std, error = self.evaluator.eval_prediction(self.model)
+
+
 
         self.stepCount += 1
 

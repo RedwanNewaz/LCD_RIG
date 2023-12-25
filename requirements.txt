@@ -1,2 +1,9 @@
 py-trees
 quads
+torch
+matplotlib
+tqdm
+bezier
+ConfigArgParse
+scikit-learn
+scikit-image
