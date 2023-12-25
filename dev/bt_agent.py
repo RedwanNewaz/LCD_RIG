@@ -29,7 +29,7 @@ class Visualization(py_trees.behaviour.Behaviour):
         for key, value in state.items():
             # print(key, value)
             plt.scatter(value['x'], value['y'], alpha=0.6)
-            self.tree.insert(quads.Point(value['x'], value['y'], data="Samus"))
+            self.tree.insert(quads.Point(value['x'], value['y'], data=key))
 
         if self.step_count > 0 and self.step_count % 100 == 0:
             quads.visualize(self.tree)
@@ -114,10 +114,18 @@ class Agent(py_trees.behaviour.Behaviour):
         for robotName, robotState in Visualization.decode().items():
             if robotName != self.name:
                 if 'x' in robotState and 'y' in robotState:
-                    tree.insert(quads.Point(robotState['x'], robotState['y'], data="Samus"))
+                    point = quads.Point(robotState['x'], robotState['y'], data=robotName)
+                    tree.insert(point, data=robotName)
 
         return tree
 
+    def get_neighbors(self, x, y, tree, range):
+        bb = quads.BoundingBox(min_x=x - range, min_y=y - range, max_x=x + range, max_y=y + range)
+
+        agents = []
+        for point in tree.within_bb(bb):
+            agents.append(point.data)
+        return agents
 
     def check_nei_range(self, x, y, tree, range):
 
@@ -158,10 +166,10 @@ class Agent(py_trees.behaviour.Behaviour):
         if self.check_nei_range(x_new[0, 0], x_new[0, 1], nei_tree, 2 * self.robot_radius):
             console.info(console.red + msg + console.reset)
             collision = True
-
-        elif self.check_nei_range(x_new[0, 0], x_new[0, 1], nei_tree, 4 * self.robot_radius):
-            console.info(console.green + msg + console.reset)
-            communicating = True
+        else:
+            for k, nei in enumerate(self.get_neighbors(x_new[0, 0], x_new[0, 1], nei_tree, 4 * self.robot_radius)):
+                console.info(console.green + f"[robot {self.robotID}]: -> ({k + 1}) {nei}"  + console.reset)
+                communicating = True
 
         status = "collision"  if collision else "communicating" if communicating else "exploring"
 
@@ -170,7 +178,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.pub.set("/%s/y" % self.name, x_new[0, 1])
         self.pub.set("/%s/z" % self.name, y_new[0, 0])
 
-        self.explorationTree.insert(quads.Point(x_new[0, 0], x_new[0, 1], data="Samus"))
+        self.explorationTree.insert(quads.Point(x_new[0, 0], x_new[0, 1], data=self.name))
 
 
         return self.status.SUCCESS
