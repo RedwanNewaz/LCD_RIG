@@ -97,14 +97,14 @@ def run(args, agents, sensor):
     ####################
     root = py_trees.composites.Parallel(
         name="MultiAgent",
-        # policy=py_trees.common.ParallelPolicy.SuccessOnAll()
-        policy=py_trees.common.ParallelPolicy.SuccessOnOne()
+        policy=py_trees.common.ParallelPolicy.SuccessOnAll()
+        # policy=py_trees.common.ParallelPolicy.SuccessOnOne()
     )
 
 
     viz = Visualization(args.task_extent, sensor)
-    root.add_children(agents)
     root.add_child(viz)
+    root.add_children(agents)
 
     task = py_trees.composites.Sequence("Sequence", True)
     task.add_child(root)
