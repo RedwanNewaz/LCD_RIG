@@ -10,7 +10,7 @@ class Visualization(py_trees.behaviour.Behaviour):
         self.step_count = 0
         self.boundary = Rectangle(task_extent[0], task_extent[2], task_extent[1] - task_extent[0],
                   task_extent[3] - task_extent[2])
-        self.tree = QuadTree( self.boundary,  capacity=8)
+        self.tree = QuadTree( self.boundary,  capacity=4)
 
     def update(self):
         state = self.decode()
