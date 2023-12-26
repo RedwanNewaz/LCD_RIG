@@ -95,14 +95,17 @@ def run(args, agents, sensor):
     ####################
     # create tree
     ####################
+    viz = Visualization(args.task_extent, sensor)
+
     root = py_trees.composites.Parallel(
         name="MultiAgent",
-        policy=py_trees.common.ParallelPolicy.SuccessOnAll()
+        # policy=py_trees.common.ParallelPolicy.SuccessOnAll()
         # policy=py_trees.common.ParallelPolicy.SuccessOnOne()
+        policy=py_trees.common.ParallelPolicy.SuccessOnSelected([viz])
     )
 
 
-    viz = Visualization(args.task_extent, sensor)
+
     root.add_child(viz)
     root.add_children(agents)
 

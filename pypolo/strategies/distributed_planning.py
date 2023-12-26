@@ -64,10 +64,31 @@ class DistributedPlanning(IStrategy):
             task_extent = self.task_extent.copy()
             if "exploration_tree" in self.additional_parameter:
                 prob = np.random.normal()
-                if prob < 2.0:
+                if prob < 0.50:
                     exploration_tree = self.additional_parameter["exploration_tree"]
                     rects = exploration_tree.sortedRect()[::-1] # sort largest to smallest
-                    task_extent = random.choice(rects[:min(5, len(rects))]).box()
+                    # task_extent = random.choice(rects[:5]).box()
+                    solutionFound = False
+                    for rect in rects:
+                        if 'neighbors' in self.additional_parameter:
+                            neighbors = self.additional_parameter['neighbors']
+                            if len(neighbors) > 0:
+                                for neighbor in neighbors:
+                                    if not rect.contains(neighbor):
+                                        solutionFound = True
+                                        break
+                                    else:
+                                        print(f"[avoid] {rect} {rect.area()}")
+                            else:
+                                solutionFound = True
+                        if(solutionFound):
+                            task_extent = rect.box()
+                            print(f"[solutionFound] {rect} {rect.area()}")
+                            break
+
+
+
+                    # task_extent = random.choice(rects[:min(5, len(rects))]).box()
                     # print(task_extent)
 
             # Propose candidate locations

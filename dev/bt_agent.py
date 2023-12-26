@@ -34,7 +34,6 @@ class CollisionChecker(py_trees.behaviour.Behaviour):
         if status:
             msg = f"[{self.name}] : collide"
             console.info(console.red + msg + console.reset)
-
         return self.status.SUCCESS if status else self.status.FAILURE
 
 
@@ -52,11 +51,13 @@ class Communicator(py_trees.behaviour.Behaviour):
 
     def get_neighbors(self):
         agents = []
+        local_neighbors = []
         for p in self.neighbors:
             dx, dy = p[0] - self.x, self.y - p[1]
             if np.sqrt(dx ** 2 + dy ** 2 ) < self.__range * self.robot_radius:
                 agents.append(p[2])
-
+                local_neighbors.append(Point(p[0], p[1], p[2]))
+        self.strategy(neighbors=local_neighbors)
         return agents
 
     def update(self):
@@ -94,9 +95,10 @@ class Learner(py_trees.behaviour.Behaviour):
 
 
 class Explorer(py_trees.behaviour.Behaviour):
-    def __init__(self, robot, pub, name):
+    def __init__(self, robot, explorationTree, pub, name):
         self.robot = robot
         self.pub = pub
+        self.explorationTree = explorationTree
         super().__init__(f"{name}/explorer")
         self.parent_name = self.name.split("/")[0]
         self.dt = 0.001
@@ -108,6 +110,8 @@ class Explorer(py_trees.behaviour.Behaviour):
             x, y = state[0], state[1]
             self.pub.set("/%s/xyz" % self.parent_name, f"{x},{y}")
             sleep(self.dt)
+            p = Point(x, y)
+            self.explorationTree.insert(p)
             return self.status.RUNNING
         return self.status.SUCCESS
 
@@ -166,8 +170,8 @@ class Agent(py_trees.behaviour.Behaviour):
         collision_checker = CollisionChecker(self.strategy, neighbors, self.robot_radius, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
         learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
-        explorer = Explorer(self.robot, self.pub, self.name)
-        venture = Explorer(self.robot, self.pub, self.name + "/venture")
+        explorer = Explorer(self.robot, self.explorationTree, self.pub, self.name)
+        venture = Explorer(self.robot, self.explorationTree, self.pub, self.name + "/venture")
         planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
 
 

@@ -28,6 +28,7 @@ class Visualization(py_trees.behaviour.Behaviour):
                     plt.scatter(value[0], value[1], s=100, alpha=1.0)
 
         ax = plt.gca()
+        isCollision = False
         for i in range(len(robots)):
             for j in range(len(robots)):
                 if i != j:
@@ -35,13 +36,14 @@ class Visualization(py_trees.behaviour.Behaviour):
                     if dist < 2 * self.robot_radius:
                         redCircle = Circle( (robots[i][0], robots[i][1]), self.collision_radius * self.robot_radius, color='red', alpha=0.4)
                         ax.add_patch(redCircle)
+                        isCollision = True
                     elif dist < 4 * self.robot_radius:
                         greenCircle = Circle((robots[i][0], robots[i][1]), self.communication_radius * self.robot_radius, color='green', alpha=0.4)
                         ax.add_patch(greenCircle)
         plt.axis(self.task_extent)
         plt.pause(1e-2)
         self.step_count += 1
-        return self.status.SUCCESS
+        return self.status.SUCCESS if not isCollision else self.status.FAILURE
 
     @staticmethod
     def decode():
