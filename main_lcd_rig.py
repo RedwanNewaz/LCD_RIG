@@ -104,9 +104,11 @@ def run(args, agents, sensor):
 
     viz = Visualization(args.task_extent, sensor)
     root.add_children(agents)
+    root.add_child(viz)
 
     task = py_trees.composites.Sequence("Sequence", True)
-    task.add_children([root, viz])
+    task.add_child(root)
+    # task.add_children([root, viz])
     ####################
     # Tree Stewardship
     ####################
@@ -114,10 +116,10 @@ def run(args, agents, sensor):
     behaviour_tree = py_trees.trees.BehaviourTree(task)
 
     simStep = 0
-    while simStep < args.max_num_samples:
+    while simStep < 10000:
         behaviour_tree.tick()
-        # if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
-        #     break
+        if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
+            break
         simStep += 1
 
 

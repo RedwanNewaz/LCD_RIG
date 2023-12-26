@@ -4,6 +4,7 @@ import py_trees.console as console
 from py_trees import common
 from .bt_viz import Visualization
 from .quad_geom import Rectangle, QuadTree, Point
+from time import sleep
 
 
 class CollisionChecker(py_trees.behaviour.Behaviour):
@@ -60,40 +61,71 @@ class Communicator(py_trees.behaviour.Behaviour):
         return self.status.SUCCESS
 
 
-class Explorer(py_trees.behaviour.Behaviour):
-    def __init__(self, x_new, rng, model, evaluator, sensor, pub, name):
-        self.x_new = x_new
+class Learner(py_trees.behaviour.Behaviour):
+    def __init__(self, robot, rng, model, evaluator, sensor, name):
+        self.robot = robot
         self.rng = rng
         self.model = model
         self.evaluator = evaluator
         self.sensor = sensor
-        self.pub = pub
         self.parent_name = name
-        super(Explorer, self).__init__(f"{name}/explorer")
+        super().__init__(f"{name}/learner")
 
 
     def update(self) -> common.Status:
+        # print("learning ...")
         try:
-            y_new = self.sensor.sense(self.x_new, self.rng).reshape(-1, 1)
+            x_new = self.robot.commit_data()
+            y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
+            self.model.add_data(x_new, y_new)
+            self.model.optimize(num_iter=len(y_new), verbose=False)
         except:
-            return self.status.SUCCESS
-
-        self.model.add_data(self.x_new, y_new)
-        self.model.optimize(num_iter=len(y_new), verbose=False)
+            return self.status.FAILURE
         mean, std, error = self.evaluator.eval_prediction(self.model)
         msg = f"[{self.name}]:  gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {np.mean(error):.3f}"
         self.logger.debug(msg)
-        self.pub.set("/%s/xyz" % self.parent_name, f"{self.x_new[0, 0]},{self.x_new[0, 1]},{y_new[0, 0]}")
+        console.info(console.cyan + f"[{self.name}]: {msg}" + console.reset)
+        # self.pub.set("/%s/xyz" % self.parent_name, f"{x_new[0, 0]},{x_new[0, 1]},{y_new[0, 0]}")
 
         return self.status.SUCCESS
 
 
+class Explorer(py_trees.behaviour.Behaviour):
+    def __init__(self, robot, pub, name):
+        self.robot = robot
+        self.pub = pub
+        self.dt = 0.03
+        super().__init__(f"{name}/explorer")
+        self.parent_name = self.name.split("/")[0]
+    def update(self):
+        if self.robot.has_goal:
+            self.robot.update(*self.robot.control())
+            state = self.robot.state
+            x, y = state[0], state[1]
+            self.pub.set("/%s/xyz" % self.parent_name, f"{x},{y}")
+            # sleep(self.dt)
+            return self.status.RUNNING
+        return self.status.SUCCESS
+
+class Planner(py_trees.behaviour.Behaviour):
+    def __init__(self, model, strategy, explorationTree, name):
+        self.model = model
+        self.strategy = strategy
+        self.explorationTree = explorationTree
+        super().__init__(f"{name}/planner")
+
+    def update(self):
+        # print("planning ...")
+        self.strategy(exploration_tree=self.explorationTree)
+        self.strategy.get(model=self.model)
+        return self.status.SUCCESS
+
 class Agent(py_trees.behaviour.Behaviour):
     def __init__(self,rng, model, strategy, sensor, evaluator, task_extent, robotID):
-
         self.rng = rng
         self.model = model
         self.strategy = strategy
+        self.robot = strategy.robot
         self.sensor = sensor
         self.evaluator = evaluator
         self.robotID = robotID
@@ -107,7 +139,7 @@ class Agent(py_trees.behaviour.Behaviour):
 
         self.boundary = Rectangle(task_extent[0], task_extent[2], task_extent[1] - task_extent[0],
                                   task_extent[3] - task_extent[2])
-        print(self.boundary)
+        # print(self.boundary)
         self.explorationTree = QuadTree( self.boundary,  capacity=8)
 
 
@@ -124,29 +156,42 @@ class Agent(py_trees.behaviour.Behaviour):
 
     def update(self):
 
-        self.strategy(exploration_tree=self.explorationTree)
-        x_new = self.strategy.get(model=self.model)
+
+        hasGoal = py_trees.behaviours.Success(name="hasGoal") if self.robot.has_goal else py_trees.behaviours.Failure(name="hasGoal")
+        state = self.robot.state
 
         tree = self.find_neighbors()
-        x, y = x_new[0, 0], x_new[0, 1]
+        x, y = state[0], state[1]
         collision_checker = CollisionChecker(x, y, tree, self.robot_radius, self.name)
         communicator = Communicator(x, y, tree, self.robot_radius, self.name)
-        explorer = Explorer(x_new, self.rng, self.model, self.evaluator, self.sensor, self.pub, self.name)
+        learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
+        explorer = Explorer(self.robot, self.pub, self.name)
+        venture = Explorer(self.robot, self.pub, self.name + "/venture")
+        planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
+
+
 
         root = py_trees.composites.Sequence(name="Sequence", memory=True)
-        selector = py_trees.composites.Selector(name="Selector", memory=False)
-        selector.add_children([collision_checker, communicator])
-        root.add_children([selector, explorer])
+        seqGoalExplorer = py_trees.composites.Sequence(name="SeqGoalExplorer", memory=True)
+        plannerSelector = py_trees.composites.Selector(name="PlannerSelector", memory=True)
+        plannerSequence = py_trees.composites.Sequence(name="PlannerSequence", memory=True)
+        neighborSelector = py_trees.composites.Selector(name="NeighborSelector", memory=True)
+
+        seqGoalExplorer.add_children([hasGoal, explorer])
+        plannerSelector.add_children([seqGoalExplorer, plannerSequence])
+        plannerSequence.add_children([neighborSelector, planner, venture])
+        neighborSelector.add_children([collision_checker, communicator])
+
+        root.add_children([plannerSelector, learner])
+
+        # selector.add_children([collision_checker, communicator])
+        # root.add_children([selector, explorer])
         # safety_checker = py_trees.decorators.Inverter(
         #     name="Inverter", child=collision_checker
         # )
         # root.add_children([safety_checker, communicator, explorer])
 
         root.tick_once()
-        point = Point(x_new[0, 0], x_new[0, 1])
-        if self.boundary.contains(point):
-            self.explorationTree.insert(point)
-        self.stepCount += 1
         return root.status
 
 

@@ -68,7 +68,7 @@ class DistributedPlanning(IStrategy):
                     exploration_tree = self.additional_parameter["exploration_tree"]
                     rects = exploration_tree.sortedRect()[::-1] # sort largest to smallest
                     task_extent = random.choice(rects[:min(5, len(rects))]).box()
-                    print(task_extent)
+                    # print(task_extent)
 
             # Propose candidate locations
             xs = self.rng.uniform(
@@ -95,12 +95,11 @@ class DistributedPlanning(IStrategy):
             sorted_indices = np.argsort(scores)
             goal_states = candidate_states[sorted_indices[-num_states:]]
             self.robot.goal_states.append(goal_states.ravel())
-            # Controling and sampling
-            # count = 0
-            while self.robot.has_goal:
-                self.robot.update(*self.robot.control())
-                # count += 1
-                # if count == 3:
-                #     break
-        x_new = self.robot.commit_data()
-        return x_new
+
+            return []
+        #     # Controling and sampling
+        #     while self.robot.has_goal:
+        #         self.robot.update(*self.robot.control())
+        #
+        # x_new = self.robot.commit_data()
+        # return x_new

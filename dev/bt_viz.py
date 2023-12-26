@@ -1,32 +1,23 @@
 import matplotlib.pyplot as plt
 import py_trees
-from .quad_geom import QuadTree, Rectangle, Point
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
     def __init__(self, task_extent, sensor):
         super().__init__(self.name)
-        self.task_extent = task_extent
+        self.task_extent = [task_extent[0] -1, task_extent[1] + 1, task_extent[2] -1, task_extent[3] + 1]
         self.sensor = sensor
         self.step_count = 0
-        self.boundary = Rectangle(task_extent[0], task_extent[2], task_extent[1] - task_extent[0],
-                  task_extent[3] - task_extent[2])
-        self.tree = QuadTree( self.boundary,  capacity=4)
 
     def update(self):
         state = self.decode()
         plt.cla()
         plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
-                   extent=self.sensor.env.extent)
+                   extent=self.task_extent)
         for robotName, val in state.items():
             for key, value in val.items():
                 if isinstance(value, list) and key == 'xyz':
-                    plt.scatter(value[0], value[1], alpha=0.6)
-                    p = Point(value[0], value[1], data=robotName)
-                    self.tree.insert(p)
+                    plt.scatter(value[0], value[1], s=100, alpha=1.0)
 
-        ax = plt.gca()
-        for rect in self.tree.sortedRect():
-            ax.add_patch(rect.get_rect('y'))
         plt.axis(self.task_extent)
         plt.pause(1e-2)
         self.step_count += 1
