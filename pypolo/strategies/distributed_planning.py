@@ -66,7 +66,7 @@ class DistributedPlanning(IStrategy):
                 prob = np.random.normal()
                 if prob < 0.50:
                     exploration_tree = self.additional_parameter["exploration_tree"]
-                    rects = exploration_tree.sortedRect()[::-1] # sort largest to smallest
+                    rects = exploration_tree.sortedRect() # sort largest to smallest
                     # task_extent = random.choice(rects[:5]).box()
                     solutionFound = False
                     for rect in rects:

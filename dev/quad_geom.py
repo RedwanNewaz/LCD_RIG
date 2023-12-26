@@ -45,8 +45,8 @@ class Rectangle:
         return self.w * self.h
 
     def __lt__(self, nxt):
-        return self.area() < nxt.area()
-
+        # return self.area() < nxt.area()
+        return len(self.points) < len(nxt.points)
     def contains(self, point):
         check_x = self.x <= point.x <= self.x + self.w
         check_y = self.y <= point.y <= self.y + self.h

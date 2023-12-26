@@ -148,7 +148,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.boundary = Rectangle(task_extent[0], task_extent[2], task_extent[1] - task_extent[0],
                                   task_extent[3] - task_extent[2])
         # print(self.boundary)
-        self.explorationTree = QuadTree( self.boundary,  capacity=8)
+        self.explorationTree = QuadTree( self.boundary,  capacity=16)
 
     def find_neighbors(self):
 
