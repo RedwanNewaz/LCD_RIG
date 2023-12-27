@@ -184,7 +184,7 @@ def main():
     env = pypolo.experiments.environments.get_environment(
         args.env_name, data_path)
     sensor = get_sensor(args, env)
-    num_agents = 3
+    num_agents = 4
     Xinits = get_robots_init_locs(args.env_extent, num_agents)
     gpModels = get_gp_models(args, sensor, rng, Xinits)
     robots = [get_robot(x_init, args) for x_init in Xinits]
