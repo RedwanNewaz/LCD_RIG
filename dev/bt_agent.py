@@ -57,8 +57,8 @@ class Communicator(py_trees.behaviour.Behaviour):
         for p in self.neighbors:
             dx, dy = p[0] - self.x, self.y - p[1]
             if np.sqrt(dx ** 2 + dy ** 2 ) < self.__range * self.robot_radius:
-                agents.append(p[2])
-                local_neighbors.append(Point(p[0], p[1], p[2]))
+                agents.append(p[-1])
+                local_neighbors.append(Point(p[0], p[1], p[-1]))
         self.strategy(neighbors=local_neighbors)
         return agents
 
@@ -159,8 +159,7 @@ class Agent(py_trees.behaviour.Behaviour):
         for robotName, val in state.items():
             for key, robotState in val.items():
                 if isinstance(robotState, list) and key == 'state' and robotName != self.name:
-                    neighbors.append([robotState[0], robotState[1], robotName])
-                    # neighbors.append([robotState[0], robotState[1], robotName])
+                    neighbors.append([robotState[0], robotState[1], robotState[2], robotState[3], robotState[4], robotName])
         return neighbors
 
 
