@@ -4,9 +4,9 @@ from matplotlib.patches import Circle
 import py_trees
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
-    def __init__(self, task_extent, sensor):
+    def __init__(self, env_extent, sensor):
         super().__init__(self.name)
-        self.task_extent = [task_extent[0] -1, task_extent[1] + 1, task_extent[2] -1, task_extent[3] + 1]
+        self.env_extent = env_extent
         self.sensor = sensor
         self.step_count = 0
         self.robot_radius = 0.5
@@ -17,12 +17,12 @@ class Visualization(py_trees.behaviour.Behaviour):
         state = self.decode()
         plt.cla()
         plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
-                   extent=self.task_extent)
+                   extent=self.env_extent)
 
         robots = np.zeros((0, 2))
         for robotName, val in state.items():
             for key, value in val.items():
-                if isinstance(value, list) and key == 'xyz':
+                if isinstance(value, list) and key == 'state':
                     robot = np.array([value[0], value[1]])
                     robots = np.vstack((robots, robot))
                     plt.scatter(value[0], value[1], s=100, alpha=1.0)
@@ -40,10 +40,11 @@ class Visualization(py_trees.behaviour.Behaviour):
                     elif dist < 4 * self.robot_radius:
                         greenCircle = Circle((robots[i][0], robots[i][1]), self.communication_radius * self.robot_radius, color='green', alpha=0.4)
                         ax.add_patch(greenCircle)
-        plt.axis(self.task_extent)
+        plt.axis(self.env_extent)
         plt.pause(1e-2)
         self.step_count += 1
-        return self.status.SUCCESS if not isCollision else self.status.FAILURE
+        return self.status.SUCCESS
+        # return self.status.SUCCESS if not isCollision else self.status.FAILURE
 
     @staticmethod
     def decode():
@@ -79,7 +80,7 @@ class Visualization(py_trees.behaviour.Behaviour):
 
             try:
                 # Convert list of float values from string to float
-                if key in ['xyz']:
+                if key in ['state']:
                     value = list(map(float, value.split(',')))
                 # Store key-value pair in the nested dictionary
                 data_dict[agent_id][key] = value

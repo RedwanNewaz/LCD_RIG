@@ -16,7 +16,7 @@ def get_sensor(args, env):
 
 
 def get_pilot_data(args, rng, sensor):
-    bezier = pypolo.strategies.Bezier(task_extent=args.task_extent, rng=rng)
+    bezier = pypolo.strategies.Bezier(task_extent=args.env_extent, rng=rng)
     x_init = bezier.get(num_states=args.num_init_samples)
     y_init = sensor.sense(states=x_init, rng=rng).reshape(-1, 1)
     return x_init, y_init
@@ -51,7 +51,7 @@ def get_model(args, x_init, y_init):
 def get_evaluator(args, sensor):
     evaluator = pypolo.experiments.Evaluator(
         sensor=sensor,
-        task_extent=args.task_extent,
+        task_extent=args.env_extent,
         eval_grid=args.eval_grid,
     )
     return evaluator
@@ -61,25 +61,25 @@ def get_strategy(args, rng, robot):
     """Get sampling strategy."""
     if args.strategy == "random":
         return pypolo.strategies.RandomSampling(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
         )
     elif args.strategy == "active":
         return pypolo.strategies.ActiveSampling(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
             num_candidates=args.num_candidates,
         )
     elif args.strategy == "myopic":
         return pypolo.strategies.MyopicPlanning(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
             num_candidates=args.num_candidates,
             robot=robot,
         )
     elif args.strategy == "distributed":
         return pypolo.strategies.DistributedPlanning(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
             num_candidates=args.num_candidates,
             robot=robot,
@@ -96,7 +96,7 @@ def run(args, rng, model, strategy, sensor, evaluator, logger):
         plt.imshow(sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
                          extent=sensor.env.extent)
         plt.scatter(x[:, 0], x[:, 1], c='r', alpha=0.4)
-        plt.axis(args.task_extent)
+        plt.axis(args.env_extent)
         plt.pause(1e-2)
 
     while model.num_train < args.max_num_samples:

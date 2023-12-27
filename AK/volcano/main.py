@@ -71,11 +71,11 @@ def get_data(args, rng, sensor, data_path):
     if x_path.is_file():
         x_train = np.genfromtxt(x_path, delimiter=",")
     else:
-        x1 = rng.uniform(args.task_extent[0],
-                         args.task_extent[1],
+        x1 = rng.uniform(args.env_extent[0],
+                         args.env_extent[1],
                          size=args.max_num_samples)
-        x2 = rng.uniform(args.task_extent[2],
-                         args.task_extent[3],
+        x2 = rng.uniform(args.env_extent[2],
+                         args.env_extent[3],
                          size=args.max_num_samples)
         x_train = np.column_stack((x1, x2))
         np.savetxt(x_path, x_train, delimiter=",")
@@ -105,7 +105,7 @@ def get_model(args, x_init, y_init):
 def get_evaluator(args, sensor):
     evaluator = pypolo.experiments.Evaluator(
         sensor=sensor,
-        task_extent=args.task_extent,
+        task_extent=args.env_extent,
         eval_grid=args.eval_grid,
     )
     return evaluator

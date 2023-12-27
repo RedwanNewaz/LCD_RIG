@@ -41,6 +41,7 @@ class USV(IRobot):
         dynamics = DubinsCar(control_rate)
         super().__init__(init_state, dynamics, tolerance, sampling_rate)
         self.max_lin_vel = max_lin_vel
+        self.control_input = [0, 0]
 
     @staticmethod
     def _check_inputs(
@@ -104,4 +105,5 @@ class USV(IRobot):
         angular_velocity = 2.0 * np.arctan2(y_odom, x_odom)
 
         action = np.array([linear_velocity, angular_velocity])
+        self.control_input = [linear_velocity, angular_velocity]
         return dist, action

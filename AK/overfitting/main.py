@@ -247,11 +247,11 @@ def get_sensor(args, env):
 
 def get_data(args, rng, sensor):
     """Returns the training data."""
-    x1 = rng.uniform(args.task_extent[0],
-                     args.task_extent[1],
+    x1 = rng.uniform(args.env_extent[0],
+                     args.env_extent[1],
                      size=args.num_train)
-    x2 = rng.uniform(args.task_extent[2],
-                     args.task_extent[3],
+    x2 = rng.uniform(args.env_extent[2],
+                     args.env_extent[3],
                      size=args.num_train)
     x_train = np.column_stack((x1, x2))
     y_train = sensor.sense(x_train)
@@ -276,7 +276,7 @@ def get_model(args, x_init, y_init):
 def get_evaluator(args, sensor):
     evaluator = pypolo.experiments.Evaluator(
         sensor=sensor,
-        task_extent=args.task_extent,
+        task_extent=args.env_extent,
         eval_grid=args.eval_grid,
     )
     return evaluator

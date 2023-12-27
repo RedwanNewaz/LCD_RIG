@@ -7,7 +7,7 @@ from .quad_geom import Rectangle, QuadTree, Point
 from time import sleep
 
 
-class CollisionChecker(py_trees.behaviour.Behaviour):
+class CollisionHandler(py_trees.behaviour.Behaviour):
     def __init__(self, strategy, neighbors, robot_radius, name):
         self.strategy = strategy
         self.robot = strategy.robot
@@ -17,7 +17,7 @@ class CollisionChecker(py_trees.behaviour.Behaviour):
         self.robot_radius = robot_radius
         self.__range = 2
         self.parent_name = name
-        super(CollisionChecker, self).__init__(f"{name}/collision_checker")
+        super(CollisionHandler, self).__init__(f"{name}/collision_handler")
 
 
     def check_nei_range(self):
@@ -34,7 +34,9 @@ class CollisionChecker(py_trees.behaviour.Behaviour):
         if status:
             msg = f"[{self.name}] : collide"
             console.info(console.red + msg + console.reset)
-        return self.status.SUCCESS if status else self.status.FAILURE
+        # return self.status.SUCCESS if status else self.status.FAILURE
+        # FIXME replace this status with RUNNING later
+        return self.status.FAILURE
 
 
 class Communicator(py_trees.behaviour.Behaviour):
@@ -107,10 +109,10 @@ class Explorer(py_trees.behaviour.Behaviour):
         if self.robot.has_goal:
             self.robot.update(*self.robot.control())
             state = self.robot.state
-            x, y = state[0], state[1]
-            self.pub.set("/%s/xyz" % self.parent_name, f"{x},{y}")
+            control = self.robot.control_input
+            self.pub.set("/%s/state" % self.parent_name, f"{state[0]},{state[1]},{state[2]},{control[0]},{control[1]}")
             sleep(self.dt)
-            p = Point(x, y)
+            p = Point(state[0], state[1])
             self.explorationTree.insert(p)
             return self.status.RUNNING
         return self.status.SUCCESS
@@ -143,7 +145,7 @@ class Agent(py_trees.behaviour.Behaviour):
         super().__init__(name)
 
         self.pub = py_trees.blackboard.Client(name=name, namespace=name)
-        self.pub.register_key(key="/%s/xyz" % self.name , access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/state" % self.name , access=py_trees.common.Access.WRITE)
 
         self.boundary = Rectangle(task_extent[0], task_extent[2], task_extent[1] - task_extent[0],
                                   task_extent[3] - task_extent[2])
@@ -156,8 +158,9 @@ class Agent(py_trees.behaviour.Behaviour):
         neighbors = []
         for robotName, val in state.items():
             for key, robotState in val.items():
-                if isinstance(robotState, list) and key == 'xyz' and robotName != self.name:
+                if isinstance(robotState, list) and key == 'state' and robotName != self.name:
                     neighbors.append([robotState[0], robotState[1], robotName])
+                    # neighbors.append([robotState[0], robotState[1], robotName])
         return neighbors
 
 
@@ -167,31 +170,24 @@ class Agent(py_trees.behaviour.Behaviour):
         hasGoal = py_trees.behaviours.Success(name="hasGoal") if self.robot.has_goal else py_trees.behaviours.Failure(name="hasGoal")
         neighbors = self.find_neighbors()
 
-        collision_checker = CollisionChecker(self.strategy, neighbors, self.robot_radius, self.name)
+        collision_handler = CollisionHandler(self.strategy, neighbors, self.robot_radius, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
         learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
         explorer = Explorer(self.robot, self.explorationTree, self.pub, self.name)
-        venture = Explorer(self.robot, self.explorationTree, self.pub, self.name + "/venture")
         planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
 
 
-        root = py_trees.composites.Sequence(name="Sequence", memory=True)
-        seqGoalExplorer = py_trees.composites.Sequence(name="SeqGoalExplorer", memory=True)
+        root = py_trees.composites.Sequence(name="RootSequence", memory=True)
         plannerSelector = py_trees.composites.Selector(name="PlannerSelector", memory=True)
-        plannerSequence = py_trees.composites.Sequence(name="PlannerSequence", memory=True)
-        # neighborSelector = py_trees.composites.Selector(name="NeighborSelector", memory=True)
-        neighborSequence = py_trees.composites.Sequence(name="NeighborSequence", memory=True)
-        seqGoalExplorer.add_children([hasGoal, explorer])
-        plannerSelector.add_children([seqGoalExplorer, plannerSequence])
-        # plannerSequence.add_children([neighborSelector, planner, venture])
-        # neighborSelector.add_children([collision_checker, communicator])
+        explorerSelector = py_trees.composites.Selector(name="ExplorerSelector", memory=True)
 
-        plannerSequence.add_children([neighborSequence, planner, venture])
-        safety_checker = py_trees.decorators.Inverter(
-            name="Inverter", child=collision_checker
-        )
-        neighborSequence.add_children([communicator, safety_checker])
-        root.add_children([plannerSelector, learner])
+        neighborSequence = py_trees.composites.Sequence(name="NeighborSequence", memory=True)
+        plannerSelector.add_children([hasGoal, planner])
+        explorerSelector.add_children([neighborSequence, explorer])
+
+
+        neighborSequence.add_children([communicator, collision_handler])
+        root.add_children([plannerSelector, explorerSelector, learner])
 
 
         root.tick_once()

@@ -17,7 +17,7 @@ def get_sensor(args, env):
 
 
 def get_pilot_data(args, rng, sensor):
-    bezier = pypolo.strategies.Bezier(task_extent=args.task_extent, rng=rng)
+    bezier = pypolo.strategies.Bezier(task_extent=args.env_extent, rng=rng)
     x_init = bezier.get(num_states=args.num_init_samples)
     y_init = sensor.sense(states=x_init, rng=rng).reshape(-1, 1)
     return x_init, y_init
@@ -52,7 +52,7 @@ def get_model(args, x_init, y_init):
 def get_evaluator(args, sensor):
     evaluator = pypolo.experiments.Evaluator(
         sensor=sensor,
-        task_extent=args.task_extent,
+        task_extent=args.env_extent,
         eval_grid=args.eval_grid,
     )
     return evaluator
@@ -62,25 +62,25 @@ def get_strategy(args, rng, robot):
     """Get sampling strategy."""
     if args.strategy == "random":
         return pypolo.strategies.RandomSampling(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
         )
     elif args.strategy == "active":
         return pypolo.strategies.ActiveSampling(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
             num_candidates=args.num_candidates,
         )
     elif args.strategy == "myopic":
         return pypolo.strategies.MyopicPlanning(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
             num_candidates=args.num_candidates,
             robot=robot,
         )
     elif args.strategy == "distributed":
         return pypolo.strategies.DistributedPlanning(
-            task_extent=args.task_extent,
+            task_extent=args.env_extent,
             rng=rng,
             num_candidates=args.num_candidates,
             robot=robot,
@@ -95,7 +95,7 @@ def run(args, agents, sensor):
     ####################
     # create tree
     ####################
-    viz = Visualization(args.task_extent, sensor)
+    viz = Visualization(args.env_extent, sensor)
 
     root = py_trees.composites.Parallel(
         name="MultiAgent",
@@ -121,8 +121,9 @@ def run(args, agents, sensor):
     simStep = 0
     while simStep < 10000:
         behaviour_tree.tick()
-        if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
-            break
+        # if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
+        #     print('terminated prematurely')
+        #     break
         simStep += 1
 
 
@@ -158,10 +159,10 @@ def get_gp_models(args, sensor, rng, Xinits):
         @param x : sample location
         @return true if sample within the bounding box (task_extent)
         """
-        xmin, xmax, ymin, ymax = args.task_extent
+        xmin, xmax, ymin, ymax = args.env_extent
         return x[0] >= xmin and x[0] < xmax and x[1] >= ymin and x[1] < ymax
 
-    bezier = pypolo.strategies.Bezier(task_extent=args.task_extent, rng=rng)
+    bezier = pypolo.strategies.Bezier(task_extent=args.env_extent, rng=rng)
 
     models = []
     for x0 in Xinits:
@@ -184,7 +185,7 @@ def main():
         args.env_name, data_path)
     sensor = get_sensor(args, env)
     num_agents = 3
-    Xinits = get_robots_init_locs(args.task_extent, num_agents)
+    Xinits = get_robots_init_locs(args.env_extent, num_agents)
     gpModels = get_gp_models(args, sensor, rng, Xinits)
     robots = [get_robot(x_init, args) for x_init in Xinits]
     agents = []

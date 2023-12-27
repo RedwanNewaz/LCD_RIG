@@ -164,7 +164,7 @@ def plot_image(args, ax, cax, values, title):
     im = ax.imshow(
         matrix,
         extent=args.env_extent
-        if title == "Ground Truth" else args.task_extent,
+        if title == "Ground Truth" else args.env_extent,
     )
     plt.colorbar(
         im,
@@ -172,9 +172,9 @@ def plot_image(args, ax, cax, values, title):
         format=OOMFormatter(order_of_magnitude(values)),
     )
     workspace = plt.Rectangle(
-        (args.task_extent[0], args.task_extent[2]),
-        args.task_extent[1] - args.task_extent[0],
-        args.task_extent[3] - args.task_extent[2],
+        (args.env_extent[0], args.env_extent[2]),
+        args.env_extent[1] - args.env_extent[0],
+        args.env_extent[3] - args.env_extent[2],
         linewidth=3,
         edgecolor="white",
         alpha=0.8,
