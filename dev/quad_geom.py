@@ -12,6 +12,9 @@ class Point:
 
     def __iter__(self):
         yield (self.x, self.y, self.data)
+
+    def __repr__(self):
+        return f"Point(x={self.x}, y={self.y})"
 class Rectangle:
     """Creating a Rectangle."""
 

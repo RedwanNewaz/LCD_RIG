@@ -4,6 +4,7 @@ import py_trees.console as console
 from py_trees import common
 from .bt_viz import Visualization
 from .bt_collision_handler import CollisionHandler
+from .bt_conflict_handler import ConflictHandler
 from .quad_geom import Rectangle, QuadTree, Point
 from time import sleep
 
@@ -110,6 +111,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.robotID = robotID
         self.stepCount = 0
         self.robot_radius = 0.5
+        self.taskExtent = task_extent
         name = "Agent%03d" % self.robotID
         super().__init__(name)
 
@@ -138,7 +140,10 @@ class Agent(py_trees.behaviour.Behaviour):
         hasGoal = py_trees.behaviours.Success(name="hasGoal") if self.robot.has_goal else py_trees.behaviours.Failure(name="hasGoal")
         neighbors = self.find_neighbors()
 
+        self.strategy(neighbors=neighbors)
+
         collision_handler = CollisionHandler(self.strategy, self.pub, self.explorationTree, neighbors, self.robot_radius, self.name)
+        conflict_handler = ConflictHandler(self.strategy, neighbors, self.robot_radius, self.taskExtent, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
         learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
         explorer = Explorer(self.robot, self.explorationTree, self.pub, self.name)
@@ -147,15 +152,17 @@ class Agent(py_trees.behaviour.Behaviour):
 
         root = py_trees.composites.Sequence(name="RootSequence", memory=True)
         plannerSelector = py_trees.composites.Selector(name="PlannerSelector", memory=True)
-        explorerSelector = py_trees.composites.Selector(name="ExplorerSelector", memory=True)
+        explorerSequence = py_trees.composites.Sequence(name="ExplorerSequence", memory=True)
 
         neighborSequence = py_trees.composites.Sequence(name="NeighborSequence", memory=True)
         plannerSelector.add_children([hasGoal, planner])
-        explorerSelector.add_children([neighborSequence, explorer])
+        explorerSequence.add_children([neighborSequence, explorer])
 
+        checkerSelector = py_trees.composites.Selector(name="CheckerSelector", memory=True)
+        checkerSelector.add_children([collision_handler, conflict_handler])
 
-        neighborSequence.add_children([communicator, collision_handler])
-        root.add_children([plannerSelector, explorerSelector, learner])
+        neighborSequence.add_children([communicator, checkerSelector])
+        root.add_children([plannerSelector, explorerSequence, learner])
 
 
         root.tick_once()

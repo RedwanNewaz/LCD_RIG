@@ -6,7 +6,17 @@ from .strategy import IStrategy
 from ..robots import IRobot
 
 import random
+class Point:
+    def __init__(self, x, y, data=None):
+        self.x = x
+        self.y = y
+        self.data = data
 
+    def __iter__(self):
+        yield (self.x, self.y, self.data)
+
+    def __repr__(self):
+        return f"Point(x={self.x}, y={self.y})"
 class DistributedPlanning(IStrategy):
     """Distributed myopic informative planning."""
 
@@ -65,39 +75,19 @@ class DistributedPlanning(IStrategy):
             if "exploration_tree" in self.additional_parameter:
                 exploration_tree = self.additional_parameter["exploration_tree"]
                 rects = exploration_tree.sortedRect()  # sort largest to smallest
+
+                neighbors = self.additional_parameter['neighbors']
                 bestRect = 0
                 for rect in rects:
-                    if len(rect.points) < exploration_tree.capacity and  rect.area() > bestRect:
+                    count = 1
+                    for neighbor in neighbors:
+                        if rect.contains(Point(neighbor[0], neighbor[1])):
+                            count += 1
+                    score = rect.area() / count
+                    if len(rect.points) < exploration_tree.capacity and  score > bestRect:
                         task_extent = rect.box()
-                        bestRect = rect.area()
-                print(bestRect, task_extent)
-
-                # rect = rects[]
-                # task_extent = rect.box()
-                # print(f"[solutionFound] {rect} {len(rect.points)}, {rect.area()} | {len(rects[-1].points)}, {rects[-1].area()}")
-
-                # prob = np.random.normal()
-                # if prob < 1.0:
-                #     exploration_tree = self.additional_parameter["exploration_tree"]
-                #     rects = exploration_tree.sortedRect() # sort largest to smallest
-                #     # task_extent = random.choice(rects[:5]).box()
-                #     solutionFound = False
-                #     for rect in rects:
-                #         if 'neighbors' in self.additional_parameter:
-                #             neighbors = self.additional_parameter['neighbors']
-                #             if len(neighbors) > 0:
-                #                 for neighbor in neighbors:
-                #                     if not rect.contains(neighbor):
-                #                         solutionFound = True
-                #                         break
-                #                     else:
-                #                         print(f"[avoid] {rect} {rect.area()}")
-                #             else:
-                #                 solutionFound = True
-                #         if(solutionFound):
-                #             task_extent = rect.box()
-                #             print(f"[solutionFound] {rect} {rect.area()}")
-                #             break
+                        bestRect = score
+                # print(bestRect, task_extent)
 
 
             # Propose candidate locations
@@ -112,6 +102,8 @@ class DistributedPlanning(IStrategy):
                 size=self.num_candidates,
             )
             candidate_states = np.column_stack((xs, ys))
+
+
             # Evaluate candidates
             _, std = model(candidate_states)
             entropy = gaussian_entropy(std.ravel())
