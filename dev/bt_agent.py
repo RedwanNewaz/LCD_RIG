@@ -3,40 +3,11 @@ import py_trees
 import py_trees.console as console
 from py_trees import common
 from .bt_viz import Visualization
+from .bt_collision_handler import CollisionHandler
+from .bt_conflict_handler import ConflictHandler
 from .quad_geom import Rectangle, QuadTree, Point
 from time import sleep
 
-
-class CollisionHandler(py_trees.behaviour.Behaviour):
-    def __init__(self, strategy, neighbors, robot_radius, name):
-        self.strategy = strategy
-        self.robot = strategy.robot
-        self.x = self.robot.state[0]
-        self.y = self.robot.state[1]
-        self.neighbors = neighbors
-        self.robot_radius = robot_radius
-        self.__range = 2
-        self.parent_name = name
-        super(CollisionHandler, self).__init__(f"{name}/collision_handler")
-
-
-    def check_nei_range(self):
-
-        agents = []
-        for p in self.neighbors:
-            dx, dy = p[0] - self.x, self.y - p[1]
-            if np.sqrt(dx ** 2 + dy ** 2) < self.__range * self.robot_radius:
-                    agents.append(True)
-        return any(agents)
-
-    def update(self):
-        status = self.check_nei_range()
-        if status:
-            msg = f"[{self.name}] : collide"
-            console.info(console.red + msg + console.reset)
-        # return self.status.SUCCESS if status else self.status.FAILURE
-        # FIXME replace this status with RUNNING later
-        return self.status.FAILURE
 
 
 class Communicator(py_trees.behaviour.Behaviour):
@@ -102,7 +73,7 @@ class Explorer(py_trees.behaviour.Behaviour):
         self.pub = pub
         self.explorationTree = explorationTree
         super().__init__(f"{name}/explorer")
-        self.parent_name = self.name.split("/")[0]
+        self.parent_name = name
         self.dt = 0.001
 
     def update(self):
@@ -111,7 +82,6 @@ class Explorer(py_trees.behaviour.Behaviour):
             state = self.robot.state
             control = self.robot.control_input
             self.pub.set("/%s/state" % self.parent_name, f"{state[0]},{state[1]},{state[2]},{control[0]},{control[1]}")
-            sleep(self.dt)
             p = Point(state[0], state[1])
             self.explorationTree.insert(p)
             return self.status.RUNNING
@@ -141,6 +111,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.robotID = robotID
         self.stepCount = 0
         self.robot_radius = 0.5
+        self.taskExtent = task_extent
         name = "Agent%03d" % self.robotID
         super().__init__(name)
 
@@ -169,7 +140,10 @@ class Agent(py_trees.behaviour.Behaviour):
         hasGoal = py_trees.behaviours.Success(name="hasGoal") if self.robot.has_goal else py_trees.behaviours.Failure(name="hasGoal")
         neighbors = self.find_neighbors()
 
-        collision_handler = CollisionHandler(self.strategy, neighbors, self.robot_radius, self.name)
+        self.strategy(neighbors=neighbors)
+
+        collision_handler = CollisionHandler(self.strategy, self.pub, self.explorationTree, neighbors, self.robot_radius, self.name)
+        conflict_handler = ConflictHandler(self.strategy, neighbors, self.robot_radius, self.taskExtent, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
         learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
         explorer = Explorer(self.robot, self.explorationTree, self.pub, self.name)
@@ -178,15 +152,14 @@ class Agent(py_trees.behaviour.Behaviour):
 
         root = py_trees.composites.Sequence(name="RootSequence", memory=True)
         plannerSelector = py_trees.composites.Selector(name="PlannerSelector", memory=True)
-        explorerSelector = py_trees.composites.Selector(name="ExplorerSelector", memory=True)
+        explorerSequence = py_trees.composites.Sequence(name="ExplorerSequence", memory=True)
 
         neighborSequence = py_trees.composites.Sequence(name="NeighborSequence", memory=True)
         plannerSelector.add_children([hasGoal, planner])
-        explorerSelector.add_children([neighborSequence, explorer])
+        explorerSequence.add_children([neighborSequence, explorer])
 
-
-        neighborSequence.add_children([communicator, collision_handler])
-        root.add_children([plannerSelector, explorerSelector, learner])
+        neighborSequence.add_children([communicator, conflict_handler])
+        root.add_children([plannerSelector, explorerSequence, learner])
 
 
         root.tick_once()

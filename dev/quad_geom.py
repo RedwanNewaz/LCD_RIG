@@ -12,6 +12,9 @@ class Point:
 
     def __iter__(self):
         yield (self.x, self.y, self.data)
+
+    def __repr__(self):
+        return f"Point(x={self.x}, y={self.y})"
 class Rectangle:
     """Creating a Rectangle."""
 
@@ -34,9 +37,11 @@ class Rectangle:
     def box(self):
         return [self.x, self.x + self.w, self.y, self.y + self.h]
 
-    # To print boundary of this function
+    # def box(self):
+    #     return [self.x - self.w/2, self.x + self.w/2, self.y - self.h/2, self.y + self.h/2]
+    # # To print boundary of this function
     def __repr__(self):
-        return f'({self.x}, {self.y}, {self.w}, {self.h})'
+        return f'({self.x / 2}, {self.y / 2}, {self.w}, {self.h})'
 
     def get_rect(self, color='k'):
         return Rect((self.x, self.y), self.w, self.h, fill=False,
@@ -45,8 +50,8 @@ class Rectangle:
         return self.w * self.h
 
     def __lt__(self, nxt):
-        # return self.area() < nxt.area()
-        return len(self.points) < len(nxt.points)
+        return nxt.area() / np.exp(-len(self.points)) < self.area() / np.exp(-len(self.points))
+        # return len(self.points) < len(nxt.points)
     def contains(self, point):
         check_x = self.x <= point.x <= self.x + self.w
         check_y = self.y <= point.y <= self.y + self.h
@@ -132,7 +137,7 @@ class QuadTree:
             self.southeast.sortedRect(rect)
             self.southwest.sortedRect(rect)
             self.northwest.sortedRect(rect)
-        else:
+        elif len(self.boundary.points)< self.capacity:
             heapq.heappush(rect, self.boundary)
         return rect
 
