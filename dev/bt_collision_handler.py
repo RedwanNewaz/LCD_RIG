@@ -44,11 +44,9 @@ class CollisionHandler(py_trees.behaviour.Behaviour):
             v_desired = self.compute_desired_velocity(state, self.robot.goal_states[0], self.robot_radius, self.robot.max_lin_vel)
 
             cmd = self.compute_velocity(state, neighbors, v_desired)
-            if cmd is None:
+            if cmd is None or sum(cmd) == 0:
                 return self.status.FAILURE
-                # self.robot.goal_states[0] = self.robot.state[:2]
-                # dist = 0.0
-                # cmd = np.array([0., 0.])
+
             refined_control = (dist, cmd)
             self.robot.update(*refined_control)
             state = self.robot.state
@@ -95,8 +93,11 @@ class CollisionHandler(py_trees.behaviour.Behaviour):
             bvec[i * 2 + 1] = btemp
 
         # Create search-space
-        th = np.linspace(-np.pi/2,  np.pi/2, 20)
-        vel = np.linspace(-self.robot.max_lin_vel, self.robot.max_lin_vel, 100)
+        # th = np.linspace(-np.pi/2,  np.pi/2, 20)
+        # vel = np.linspace(-self.robot.max_lin_vel, self.robot.max_lin_vel, 100)
+
+        th = np.linspace(0, 2 * np.pi, 20)
+        vel = np.linspace(0, self.robot.max_lin_vel, 10)
 
         vv, thth = np.meshgrid(vel, th)
 

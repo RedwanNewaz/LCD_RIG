@@ -43,8 +43,8 @@ class Visualization(py_trees.behaviour.Behaviour):
         plt.axis(self.env_extent)
         plt.pause(1e-2)
         self.step_count += 1
-        return self.status.SUCCESS
-        # return self.status.SUCCESS if not isCollision else self.status.FAILURE
+        # return self.status.SUCCESS if not
+        return self.status.SUCCESS if not isCollision else self.status.FAILURE
 
     @staticmethod
     def decode():

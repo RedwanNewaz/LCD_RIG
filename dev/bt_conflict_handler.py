@@ -30,69 +30,90 @@ class ConflictHandler(py_trees.behaviour.Behaviour):
 
         return agents
 
+    def move_inside(self, smaller_rect, larger_rect):
+        # Calculate the translation vectors for both x and y axes
+        translation_x = max(larger_rect.x - smaller_rect.x,
+                            min(larger_rect.x + larger_rect.w - smaller_rect.w - smaller_rect.x, 0))
+        translation_y = max(larger_rect.y - smaller_rect.y,
+                            min(larger_rect.y + larger_rect.h - smaller_rect.h - smaller_rect.y, 0))
 
+        # Update the position of the smaller rectangle
+        smaller_rect.x += translation_x
+        smaller_rect.y += translation_y
+
+    def velocity_obstacle(self, agent_pos, other_agent_pos, other_agent_vel, max_speed, radius):
+        relative_pos = other_agent_pos - agent_pos
+        relative_vel = other_agent_vel
+
+        d = np.linalg.norm(relative_pos)
+        if d == 0:
+            return np.zeros(2)
+
+        vo = relative_vel - relative_pos * (max_speed / d)
+        vo_magnitude = np.linalg.norm(vo)
+
+        if vo_magnitude > 0:
+            vo_normalized = vo / vo_magnitude
+            return vo_normalized
+        else:
+            return np.zeros(2)
+
+    def vo_trajectory(self, agent_pos, other_agents_pos, other_agents_vel, max_speed, radius):
+        avoidance_direction = np.zeros(2)
+
+        for i in range(len(other_agents_pos)):
+            vo = self.velocity_obstacle(agent_pos, other_agents_pos[i], other_agents_vel[i], max_speed, radius)
+            avoidance_direction += vo
+
+        avoidance_direction /= len(other_agents_pos) if len(other_agents_pos) > 0 else 1
+        avoidance_direction /= np.linalg.norm(avoidance_direction) if np.linalg.norm(avoidance_direction) > 0 else 1
+
+        avoidance_trajectory = agent_pos + avoidance_direction * max_speed * 2 * radius
+
+
+        return avoidance_trajectory
     def update(self):
-        return self.status.SUCCESS
         neighbors = self.check_nei_dist()
-        print(len(neighbors), neighbors)
-        # # TODO tweak d
-        r = neighbors[-1][0]
-        d = 4 * r
-        # print('d', d)
-        pA = self.robot.state[:2]
-        assert d < self.boundary.w and d < self.boundary.h and r < self.robot_radius * self.__range
-        oA = pA - 2 * r
-        cornerPoints = [Point(oA[0], oA[1]), Point(oA[0] + d, oA[1]),
-                        Point(oA[0] + d, oA[1] + d), Point(oA[0], oA[1] + d)]
 
-        initOA = oA.copy()
-        initCornerPoints = cornerPoints.copy()
-        showDebug = False
-        while not all(map(self.boundary.contains, cornerPoints)):
-            te = np.array([
-                [self.boundary.x, self.boundary.y],
-                [self.boundary.x - d, self.boundary.y],
-                [self.boundary.x, self.boundary.y - d],
-                [self.boundary.x -d, self.boundary.y -d]
-            ])
+        if len(neighbors) > 0:
 
-            print('te', te - oA)
-            dists = np.linalg.norm(te + oA, axis=1)
-            # print('dists', dists)
-            select = np.argmin(dists)
-            oA = te[select]
+            agent_pos = self.robot.state[:2]
 
+            other_agents_pos = np.zeros((0, 2))
+            other_agents_vel = np.zeros((0, 2))
+            for neighbor in neighbors:
+                _, nstate = neighbor
+                other_agents_pos = np.vstack((other_agents_pos, np.array([nstate[0], nstate[1]])))
+                other_agents_vel = np.vstack((other_agents_vel, np.array([nstate[-2], nstate[-1]])))
+            max_speed = self.robot.max_lin_vel
+            radius = neighbors[-1][0]
+            d = 2 * radius
+            oA = self.vo_trajectory(agent_pos, other_agents_pos, other_agents_vel, max_speed, radius)
+            oA = oA - 2 * radius
 
-            cornerPoints = [Point(oA[0], oA[1]), Point(oA[0] + d, oA[1]),
-                            Point(oA[0] + d, oA[1] + d), Point(oA[0], oA[1] + d)]
-            # showDebug = True
+            search_space = Rectangle(oA[0], oA[1], d, d)
+            self.move_inside(search_space, self.boundary)
 
-        if showDebug:
-            print('initOrigin ', initOA, initCornerPoints)
-            print('Found ', oA, cornerPoints)
+            while True:
+                x = random.uniform(search_space.x, search_space.x + search_space.w)
+                y = random.uniform(search_space.y, search_space.y + search_space.h)
 
-        while True:
-            x = random.uniform(oA[0], oA[0] + d)
-            y = random.uniform(oA[1], oA[1] + d)
+                pC = np.array([x, y])
 
-            pC = np.array([x, y])
+                isValid = True
+                # for nei in self.neighbors:
+                #     pB = nei[:2]
+                #     if np.linalg.norm(pB - agent_pos) < d:
+                #         isValid = False
+                #         break
 
-            isValid = True
-            for nei in self.neighbors:
-                pB = nei[:2]
-                if np.linalg.norm(pB - pC - pA) < 2 * self.robot_radius:
-                    isValid = False
+                print('pc', pC, 'oA', oA, 'd', d)
+                if isValid and len(self.robot.goal_states) > 0:
+                    self.robot.goal_states[0][0] = x
+                    self.robot.goal_states[0][1] = y
                     break
 
-            if isValid:
-                print('pc', pC, 'oA', oA, 'd', d)
-                self.robot.goal_states[0][0] = x
-                self.robot.goal_states[0][1] = y
-                break
-
-
-
-        msg = f"[{self.name}] : [modifying goal states]  {self.robot.goal_states}"
-        console.info(console.bold_yellow + msg + console.reset)
+            msg = f"[{self.name}] : [modifying goal states]  {self.robot.goal_states}"
+            console.info(console.bold_yellow + msg + console.reset)
 
         return self.status.SUCCESS

@@ -121,9 +121,9 @@ def run(args, agents, sensor):
     simStep = 0
     while simStep < 10000:
         behaviour_tree.tick()
-        # if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
-        #     print('terminated prematurely')
-        #     break
+        if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
+            print('terminated prematurely')
+            break
         simStep += 1
 
 
