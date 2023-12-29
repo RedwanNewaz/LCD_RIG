@@ -3,12 +3,26 @@ import py_trees
 import py_trees.console as console
 from py_trees import common
 from .bt_viz import Visualization
-from .bt_collision_handler import CollisionHandler
 from .bt_conflict_handler import ConflictHandler
 from .quad_geom import Rectangle, QuadTree, Point
-from time import sleep
+import subprocess
 
+def save_dot_tree(root):
+    level = "component"
+    enum_level = py_trees.common.string_to_visibility_level(level)
+    py_trees.display.render_dot_tree(root, enum_level)
 
+    if py_trees.utilities.which("xdot"):
+        try:
+            subprocess.call(["xdot", "demo_dot_graphs_%s.dot" % level])
+        except KeyboardInterrupt:
+            pass
+    else:
+        print("")
+        console.logerror(
+            "No xdot viewer found, skipping display [hint: sudo apt install xdot]"
+        )
+        print("")
 
 class Communicator(py_trees.behaviour.Behaviour):
     def __init__(self, strategy, neighbors, robot_radius, name):
@@ -112,7 +126,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.stepCount = 0
         self.robot_radius = 0.5
         self.taskExtent = task_extent
-        name = "Agent%03d" % self.robotID
+        name = "RIG%03d" % self.robotID
         super().__init__(name)
 
         self.pub = py_trees.blackboard.Client(name=name, namespace=name)
@@ -142,7 +156,6 @@ class Agent(py_trees.behaviour.Behaviour):
 
         self.strategy(neighbors=neighbors)
 
-        collision_handler = CollisionHandler(self.strategy, self.pub, self.explorationTree, neighbors, self.robot_radius, self.name)
         conflict_handler = ConflictHandler(self.strategy, neighbors, self.robot_radius, self.taskExtent, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
         learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
@@ -150,7 +163,7 @@ class Agent(py_trees.behaviour.Behaviour):
         planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
 
 
-        root = py_trees.composites.Sequence(name="RootSequence", memory=True)
+        root = py_trees.composites.Sequence(name=self.name, memory=True)
         plannerSelector = py_trees.composites.Selector(name="PlannerSelector", memory=True)
         explorerSequence = py_trees.composites.Sequence(name="ExplorerSequence", memory=True)
 
@@ -163,6 +176,8 @@ class Agent(py_trees.behaviour.Behaviour):
 
 
         root.tick_once()
+        # save_dot_tree(root)
+
         return root.status
 
 

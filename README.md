@@ -4,6 +4,13 @@ Python configure : /home/redwan/anaconda3/envs/rig/bin/python
 
 ### Dependencies
     * PyPolo
+    * py_trees
+## Behavior tree for LCD-RIG
 
-## TODO 
-1. Implement behavior tree for lcdrig 
+System Overview 
+
+![LCD-RIG Architecture](.github/resources/lcd-rig.svg)
+
+Individual RIG system 
+
+![RIG Architecture](.github/resources/rig001.svg)

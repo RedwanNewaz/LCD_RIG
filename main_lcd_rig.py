@@ -3,9 +3,11 @@ from pathlib import Path
 from time import time
 import pypolo
 import numpy as np
-import matplotlib.pyplot as plt
+import subprocess
+import py_trees.console as console
+
 import py_trees
-from dev.bt_agent import Agent, Visualization
+from dev.bt_agent import Agent, Visualization, save_dot_tree
 def get_sensor(args, env):
     sensor = pypolo.sensors.Ranger(
         rate=args.sensing_rate,
@@ -95,10 +97,10 @@ def run(args, agents, sensor):
     ####################
     # create tree
     ####################
-    viz = Visualization(args.env_extent, sensor)
+    viz = Visualization(args.env_extent, sensor, show_animation=True)
 
     root = py_trees.composites.Parallel(
-        name="MultiAgent",
+        name="LCD-RIG",
         # policy=py_trees.common.ParallelPolicy.SuccessOnAll()
         # policy=py_trees.common.ParallelPolicy.SuccessOnOne()
         policy=py_trees.common.ParallelPolicy.SuccessOnSelected([viz])
@@ -117,6 +119,8 @@ def run(args, agents, sensor):
     ####################
     # py_trees.logging.level = py_trees.logging.Level.INFO
     behaviour_tree = py_trees.trees.BehaviourTree(task)
+    # save_dot_tree(root)
+
 
     simStep = 0
     while simStep < 10000:
