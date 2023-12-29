@@ -1,0 +1,15 @@
+digraph pastafarianism {
+ordering=out;
+graph [fontname="times-roman"];
+node [fontname="times-roman"];
+edge [fontname="times-roman"];
+"LCD-RIG" [fillcolor=gold, fontcolor=black, fontsize=9, label="⚡ LCD-RIG\nSuccessOnSelected(0)", shape=parallelogram, style=filled];
+visualization [fillcolor=gray, fontcolor=black, fontsize=9, label=visualization, shape=ellipse, style=filled];
+"LCD-RIG" -> visualization;
+RIG001 [fillcolor=gray, fontcolor=black, fontsize=9, label=RIG001, shape=ellipse, style=filled];
+"LCD-RIG" -> RIG001;
+RIG002 [fillcolor=gray, fontcolor=black, fontsize=9, label=RIG002, shape=ellipse, style=filled];
+"LCD-RIG" -> RIG002;
+RIG003 [fillcolor=gray, fontcolor=black, fontsize=9, label=RIG003, shape=ellipse, style=filled];
+"LCD-RIG" -> RIG003;
+}

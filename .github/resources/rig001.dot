@@ -1,0 +1,25 @@
+digraph pastafarianism {
+ordering=out;
+graph [fontname="times-roman"];
+node [fontname="times-roman"];
+edge [fontname="times-roman"];
+RIG001 [fillcolor=orange, fontcolor=black, fontsize=9, label="Ⓜ RIG001", shape=box, style=filled];
+PlannerSelector [fillcolor=cyan, fontcolor=black, fontsize=9, label="Ⓜ PlannerSelector", shape=octagon, style=filled];
+RIG001 -> PlannerSelector;
+hasGoal [fillcolor=gray, fontcolor=black, fontsize=9, label=hasGoal, shape=ellipse, style=filled];
+PlannerSelector -> hasGoal;
+"RIG001/planner" [fillcolor=gray, fontcolor=black, fontsize=9, label="RIG001/planner", shape=ellipse, style=filled];
+PlannerSelector -> "RIG001/planner";
+ExplorerSequence [fillcolor=orange, fontcolor=black, fontsize=9, label="Ⓜ ExplorerSequence", shape=box, style=filled];
+RIG001 -> ExplorerSequence;
+NeighborSequence [fillcolor=orange, fontcolor=black, fontsize=9, label="Ⓜ NeighborSequence", shape=box, style=filled];
+ExplorerSequence -> NeighborSequence;
+"RIG001/communicator" [fillcolor=gray, fontcolor=black, fontsize=9, label="RIG001/communicator", shape=ellipse, style=filled];
+NeighborSequence -> "RIG001/communicator";
+"RIG001/conflict_handler" [fillcolor=gray, fontcolor=black, fontsize=9, label="RIG001/conflict_handler", shape=ellipse, style=filled];
+NeighborSequence -> "RIG001/conflict_handler";
+"RIG001/explorer" [fillcolor=gray, fontcolor=black, fontsize=9, label="RIG001/explorer", shape=ellipse, style=filled];
+ExplorerSequence -> "RIG001/explorer";
+"RIG001/learner" [fillcolor=gray, fontcolor=black, fontsize=9, label="RIG001/learner", shape=ellipse, style=filled];
+RIG001 -> "RIG001/learner";
+}

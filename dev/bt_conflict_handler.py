@@ -5,6 +5,14 @@ from .quad_geom import Point, Rectangle
 import random
 import heapq
 class ConflictHandler(py_trees.behaviour.Behaviour):
+    """
+    - two robots within communication distance will change their next goal location to avoid collision
+    - collision avoidance use velocity obstacle to compute the avoidance direction
+    - once avoidance direction is found, a rectangle search space is generated to sample next best goal location
+    - if search space is out of the task extent, it is moved inside the task extent
+    - finally randomly sample a goal states within the search space if goal state exist
+
+    """
     def __init__(self, strategy, neighbors, robot_radius, task_extent, name):
         self.strategy = strategy
         self.robot = strategy.robot

@@ -3,40 +3,30 @@ import py_trees
 import py_trees.console as console
 from py_trees import common
 from .bt_viz import Visualization
-from .bt_collision_handler import CollisionHandler
 from .bt_conflict_handler import ConflictHandler
+from .bt_communicator import Communicator
 from .quad_geom import Rectangle, QuadTree, Point
-from time import sleep
+from .data_compression import maximize_entropy_subset
+import subprocess
+def save_dot_tree(root):
+    level = "component"
+    enum_level = py_trees.common.string_to_visibility_level(level)
+    py_trees.display.render_dot_tree(root, enum_level)
+
+    if py_trees.utilities.which("xdot"):
+        try:
+            subprocess.call(["xdot", "demo_dot_graphs_%s.dot" % level])
+        except KeyboardInterrupt:
+            pass
+    else:
+        print("")
+        console.logerror(
+            "No xdot viewer found, skipping display [hint: sudo apt install xdot]"
+        )
+        print("")
 
 
 
-class Communicator(py_trees.behaviour.Behaviour):
-    def __init__(self, strategy, neighbors, robot_radius, name):
-        self.strategy = strategy
-        self.robot = strategy.robot
-        self.x = self.robot.state[0]
-        self.y = self.robot.state[1]
-        self.neighbors = neighbors
-        self.robot_radius = robot_radius
-        self.parent_name = name
-        self.__range = 4
-        super(Communicator, self).__init__(f"{name}/communicator")
-
-    def get_neighbors(self):
-        agents = []
-        local_neighbors = []
-        for p in self.neighbors:
-            dx, dy = p[0] - self.x, self.y - p[1]
-            if np.sqrt(dx ** 2 + dy ** 2 ) < self.__range * self.robot_radius:
-                agents.append(p[-1])
-                local_neighbors.append(Point(p[0], p[1], p[-1]))
-        self.strategy(neighbors=local_neighbors)
-        return agents
-
-    def update(self):
-        for k, nei in enumerate(self.get_neighbors()):
-            console.info(console.green + f"[{self.name}]: -> ({k + 1}) {nei}" + console.reset)
-        return self.status.SUCCESS
 
 
 class Learner(py_trees.behaviour.Behaviour):
@@ -47,14 +37,24 @@ class Learner(py_trees.behaviour.Behaviour):
         self.evaluator = evaluator
         self.sensor = sensor
         self.parent_name = name
+        self.max_samples = 20
         super().__init__(f"{name}/learner")
 
 
     def update(self) -> common.Status:
         # print("learning ...")
+        x_new = self.robot.commit_data()
+        y_raw = self.sensor.sense(x_new, self.rng)
+        y_new = y_raw.reshape(-1, 1)
+        if len(y_new) > self.max_samples:
+            msg = f"[{self.name}]: compressing data from original {len(y_new)} samples to {self.max_samples} samples"
+            console.info(console.red + msg + console.reset)
+
+            selected_index = maximize_entropy_subset(np.squeeze(y_new), self.max_samples)
+            y_new = np.array([y_new[index] for index in selected_index if index is not None])
+            x_new = np.array([x_new[index] for index in selected_index if index is not None])
+
         try:
-            x_new = self.robot.commit_data()
-            y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
             self.model.add_data(x_new, y_new)
             self.model.optimize(num_iter=len(y_new), verbose=False)
         except:
@@ -112,7 +112,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.stepCount = 0
         self.robot_radius = 0.5
         self.taskExtent = task_extent
-        name = "Agent%03d" % self.robotID
+        name = "RIG%03d" % self.robotID
         super().__init__(name)
 
         self.pub = py_trees.blackboard.Client(name=name, namespace=name)
@@ -142,7 +142,6 @@ class Agent(py_trees.behaviour.Behaviour):
 
         self.strategy(neighbors=neighbors)
 
-        collision_handler = CollisionHandler(self.strategy, self.pub, self.explorationTree, neighbors, self.robot_radius, self.name)
         conflict_handler = ConflictHandler(self.strategy, neighbors, self.robot_radius, self.taskExtent, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
         learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
@@ -150,7 +149,7 @@ class Agent(py_trees.behaviour.Behaviour):
         planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
 
 
-        root = py_trees.composites.Sequence(name="RootSequence", memory=True)
+        root = py_trees.composites.Sequence(name=self.name, memory=True)
         plannerSelector = py_trees.composites.Selector(name="PlannerSelector", memory=True)
         explorerSequence = py_trees.composites.Sequence(name="ExplorerSequence", memory=True)
 
@@ -163,6 +162,8 @@ class Agent(py_trees.behaviour.Behaviour):
 
 
         root.tick_once()
+        # save_dot_tree(root)
+
         return root.status
 
 
