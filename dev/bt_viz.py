@@ -76,7 +76,7 @@ class Visualization(py_trees.behaviour.Behaviour):
         # Iterate through each line and extract key-value pairs
         for line in lines:
 
-            if ":" not in line:
+            if ":" not in line or "state" not in line:
                 continue
 
             line = line.replace('\x1b[33m', '').replace('\x1b[37m', '')

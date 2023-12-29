@@ -4,9 +4,10 @@ import py_trees.console as console
 from py_trees import common
 from .bt_viz import Visualization
 from .bt_conflict_handler import ConflictHandler
+from .bt_communicator import Communicator
 from .quad_geom import Rectangle, QuadTree, Point
+from .data_compression import maximize_entropy_subset
 import subprocess
-
 def save_dot_tree(root):
     level = "component"
     enum_level = py_trees.common.string_to_visibility_level(level)
@@ -24,33 +25,8 @@ def save_dot_tree(root):
         )
         print("")
 
-class Communicator(py_trees.behaviour.Behaviour):
-    def __init__(self, strategy, neighbors, robot_radius, name):
-        self.strategy = strategy
-        self.robot = strategy.robot
-        self.x = self.robot.state[0]
-        self.y = self.robot.state[1]
-        self.neighbors = neighbors
-        self.robot_radius = robot_radius
-        self.parent_name = name
-        self.__range = 4
-        super(Communicator, self).__init__(f"{name}/communicator")
 
-    def get_neighbors(self):
-        agents = []
-        local_neighbors = []
-        for p in self.neighbors:
-            dx, dy = p[0] - self.x, self.y - p[1]
-            if np.sqrt(dx ** 2 + dy ** 2 ) < self.__range * self.robot_radius:
-                agents.append(p[-1])
-                local_neighbors.append(Point(p[0], p[1], p[-1]))
-        self.strategy(neighbors=local_neighbors)
-        return agents
 
-    def update(self):
-        for k, nei in enumerate(self.get_neighbors()):
-            console.info(console.green + f"[{self.name}]: -> ({k + 1}) {nei}" + console.reset)
-        return self.status.SUCCESS
 
 
 class Learner(py_trees.behaviour.Behaviour):
@@ -61,14 +37,24 @@ class Learner(py_trees.behaviour.Behaviour):
         self.evaluator = evaluator
         self.sensor = sensor
         self.parent_name = name
+        self.max_samples = 20
         super().__init__(f"{name}/learner")
 
 
     def update(self) -> common.Status:
         # print("learning ...")
+        x_new = self.robot.commit_data()
+        y_raw = self.sensor.sense(x_new, self.rng)
+        y_new = y_raw.reshape(-1, 1)
+        if len(y_new) > self.max_samples:
+            msg = f"[{self.name}]: compressing data from original {len(y_new)} samples to {self.max_samples} samples"
+            console.info(console.red + msg + console.reset)
+
+            selected_index = maximize_entropy_subset(np.squeeze(y_new), self.max_samples)
+            y_new = np.array([y_new[index] for index in selected_index if index is not None])
+            x_new = np.array([x_new[index] for index in selected_index if index is not None])
+
         try:
-            x_new = self.robot.commit_data()
-            y_new = self.sensor.sense(x_new, self.rng).reshape(-1, 1)
             self.model.add_data(x_new, y_new)
             self.model.optimize(num_iter=len(y_new), verbose=False)
         except:
