@@ -27,8 +27,16 @@ class Visualization(py_trees.behaviour.Behaviour):
                     robot = np.array([value[0], value[1]])
                     robots = np.vstack((robots, robot))
                     if self.show_animation:
-                        plt.scatter(value[0], value[1], s=100, alpha=1.0)
+                        scatter = plt.scatter(value[0], value[1], s=100, alpha=1.0)
+                        # Plotting vectors
+                        dt = 0.25
 
+                        theta = value[2] + value[4]
+                        x = robot[0] + value[3] * np.cos(theta)
+                        y = robot[1] + value[3] * np.sin(theta)
+
+                        plt.quiver(robot[0], robot[1], x, y, angles='xy', scale_units='xy', scale=1 / dt,
+                                   color=scatter.get_facecolor(), label='Velocity Obstacle Vector')
 
         isCollision = False
         for i in range(len(robots)):
