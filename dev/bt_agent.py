@@ -158,10 +158,7 @@ class Agent(py_trees.behaviour.Behaviour):
         plannerSelector.add_children([hasGoal, planner])
         explorerSequence.add_children([neighborSequence, explorer])
 
-        checkerSelector = py_trees.composites.Selector(name="CheckerSelector", memory=True)
-        # checkerSelector.add_children([collision_handler, conflict_handler])
-        checkerSelector.add_children([conflict_handler])
-        neighborSequence.add_children([communicator, checkerSelector])
+        neighborSequence.add_children([communicator, conflict_handler])
         root.add_children([plannerSelector, explorerSequence, learner])
 
 

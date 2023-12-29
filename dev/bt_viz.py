@@ -4,7 +4,7 @@ from matplotlib.patches import Circle
 import py_trees
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
-    def __init__(self, env_extent, sensor):
+    def __init__(self, env_extent, sensor, show_animation=True):
         super().__init__(self.name)
         self.env_extent = env_extent
         self.sensor = sensor
@@ -12,6 +12,7 @@ class Visualization(py_trees.behaviour.Behaviour):
         self.robot_radius = 0.5
         self.communication_radius = 4
         self.collision_radius = 2
+        self.show_animation = show_animation
 
     def update(self):
         state = self.decode()
@@ -25,23 +26,29 @@ class Visualization(py_trees.behaviour.Behaviour):
                 if isinstance(value, list) and key == 'state':
                     robot = np.array([value[0], value[1]])
                     robots = np.vstack((robots, robot))
-                    plt.scatter(value[0], value[1], s=100, alpha=1.0)
+                    if self.show_animation:
+                        plt.scatter(value[0], value[1], s=100, alpha=1.0)
 
-        ax = plt.gca()
+
         isCollision = False
         for i in range(len(robots)):
             for j in range(len(robots)):
                 if i != j:
                     dist = np.linalg.norm(robots[i] - robots[j])
                     if dist < 2 * self.robot_radius:
-                        redCircle = Circle( (robots[i][0], robots[i][1]), self.collision_radius * self.robot_radius, color='red', alpha=0.4)
-                        ax.add_patch(redCircle)
+                        if self.show_animation:
+                            ax = plt.gca()
+                            redCircle = Circle( (robots[i][0], robots[i][1]), self.collision_radius * self.robot_radius, color='red', alpha=0.4)
+                            ax.add_patch(redCircle)
                         isCollision = True
                     elif dist < 4 * self.robot_radius:
-                        greenCircle = Circle((robots[i][0], robots[i][1]), self.communication_radius * self.robot_radius, color='green', alpha=0.4)
-                        ax.add_patch(greenCircle)
-        plt.axis(self.env_extent)
-        plt.pause(1e-2)
+                        if self.show_animation:
+                            ax = plt.gca()
+                            greenCircle = Circle((robots[i][0], robots[i][1]), self.communication_radius * self.robot_radius, color='green', alpha=0.4)
+                            ax.add_patch(greenCircle)
+        if self.show_animation:
+            plt.axis(self.env_extent)
+            plt.pause(1e-2)
         self.step_count += 1
         # return self.status.SUCCESS if not
         return self.status.SUCCESS if not isCollision else self.status.FAILURE
