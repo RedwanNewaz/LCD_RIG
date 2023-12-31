@@ -101,13 +101,19 @@ class ConflictHandler(py_trees.behaviour.Behaviour):
 
             search_space = Rectangle(oA[0], oA[1], d, d)
             self.move_inside(search_space, self.boundary)
+            while True:
+                x = random.uniform(search_space.x, search_space.x + search_space.w)
+                y = random.uniform(search_space.y, search_space.y + search_space.h)
 
-            x = random.uniform(search_space.x, search_space.x + search_space.w)
-            y = random.uniform(search_space.y, search_space.y + search_space.h)
+                pC = np.array([x, y])
+                nearst_obs_dist = min(np.linalg.norm(other_agents_pos - pC, axis=1))
+                if nearst_obs_dist < self.robot_radius * 2:
+                    continue
 
-            if len(self.robot.goal_states) > 0:
-                self.robot.goal_states[0][0] = x
-                self.robot.goal_states[0][1] = y
+                if len(self.robot.goal_states) > 0:
+                    self.robot.goal_states[0][0] = x
+                    self.robot.goal_states[0][1] = y
+                break
 
             msg = f"[{self.name}] : [modifying goal states]  {self.robot.goal_states}"
             console.info(console.bold_yellow + msg + console.reset)

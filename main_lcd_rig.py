@@ -97,7 +97,7 @@ def run(args, agents, sensor):
     ####################
     # create tree
     ####################
-    viz = Visualization(args.env_extent, sensor, show_animation=True)
+    viz = Visualization(args.env_extent, args.task_extent, sensor, show_animation=True)
 
     root = py_trees.composites.Parallel(
         name="LCD-RIG",

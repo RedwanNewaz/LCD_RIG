@@ -4,15 +4,63 @@ from matplotlib.patches import Circle
 import py_trees
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
-    def __init__(self, env_extent, sensor, show_animation=True):
+    def __init__(self, env_extent, task_extent, sensor, show_animation=True):
         super().__init__(self.name)
         self.env_extent = env_extent
+        self.task_extent = task_extent
         self.sensor = sensor
         self.step_count = 0
         self.robot_radius = 0.5
         self.communication_radius = 4
         self.collision_radius = 2
         self.show_animation = show_animation
+        self.grid_map = self.generate_grid_map(task_extent, self.robot_radius)
+
+    def generate_grid_map(self, task_extent, cell_size):
+        # Extract rectangle properties
+        xmin, xmax, ymin, ymax = task_extent
+        width, height = xmax - xmin, ymax - ymin
+
+        # Calculate the number of rows and columns based on cell size
+        num_rows = int(np.ceil(height / cell_size))
+        num_cols = int(np.ceil(width / cell_size))
+
+        # Initialize the grid map with zeros
+        grid_map = np.zeros((num_rows, num_cols), dtype=int)
+
+        # Iterate over rows and columns
+        for i in range(num_rows):
+            for j in range(num_cols):
+                # Calculate the coordinates of the grid cell center
+                cell_center_x = xmin + j * cell_size + cell_size / 2
+                cell_center_y = ymin + i * cell_size + cell_size / 2
+
+                # Check if the cell center is inside the rectangle
+                if xmin <= cell_center_x <= (xmin + width) and ymin <= cell_center_y <= (ymin + height):
+                    # Set the value of the grid cell to 1 (or any other value)
+                    grid_map[i, j] = 0
+
+        return grid_map
+
+    def update_grid_map(self, cell_center_x, cell_center_y):
+        xmin, xmax, ymin, ymax = self.task_extent
+        width, height = xmax - xmin, ymax - ymin
+        # Calculate the coordinates of the grid cell center
+        j = (cell_center_x - xmin  - self.robot_radius / 2) / self.robot_radius
+        i = (cell_center_y - ymin  - self.robot_radius / 2) / self.robot_radius
+
+        i, j = int(i), int(j)
+
+        # Check if the cell center is inside the rectangle
+        if xmin <= cell_center_x <= (xmin + width) and ymin <= cell_center_y <= (ymin + height):
+            # Set the value of the grid cell to 1 (or any other value)
+            self.grid_map[i, j] = 1
+
+    def compute_coverage(self):
+        total_cells = self.grid_map.shape[0] * self.grid_map.shape[1]
+        explored_cells = np.sum(np.sum(self.grid_map, axis=1))
+        # unexplored_cells = total_cells - explored_cells
+        return explored_cells / total_cells
 
     def update(self):
         state = self.decode()
@@ -26,6 +74,7 @@ class Visualization(py_trees.behaviour.Behaviour):
                 if isinstance(value, list) and key == 'state':
                     robot = np.array([value[0], value[1]])
                     robots = np.vstack((robots, robot))
+                    self.update_grid_map(robot[0], robot[1])
                     if self.show_animation:
                         scatter = plt.scatter(value[0], value[1], s=100, alpha=1.0)
                         # Plotting vectors
@@ -54,10 +103,14 @@ class Visualization(py_trees.behaviour.Behaviour):
                             ax = plt.gca()
                             greenCircle = Circle((robots[i][0], robots[i][1]), self.communication_radius * self.robot_radius, color='green', alpha=0.4)
                             ax.add_patch(greenCircle)
+
+        coverage = self.compute_coverage()
         if self.show_animation:
+            plt.title(f"coverage = {coverage:.4f}")
             plt.axis(self.env_extent)
             plt.pause(1e-2)
         self.step_count += 1
+        print(f"coverage = {coverage:.4f}", flush=True, end="\r")
         # return self.status.SUCCESS if not
         return self.status.SUCCESS if not isCollision else self.status.FAILURE
 
