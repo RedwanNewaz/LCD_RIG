@@ -18,7 +18,7 @@ lcdrig()
     --env-name "N45W123" \
     --strategy "distributed" \
     --num-agents 4 \
-    --seed 1
+    --seed 2
 }
 
 lcdrig
