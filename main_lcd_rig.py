@@ -143,7 +143,7 @@ def save(args, evaluator, logger, agentID):
         args.strategy,
         args.kernel + args.postfix,
     ])
-    save_dir = args.output_dir + experiment_id + f"/{agentID}"
+    save_dir = args.output_dir + experiment_id + f"{args.num_agents}/{agentID}"
     evaluator.save(save_dir)
     logger.save(save_dir)
 
