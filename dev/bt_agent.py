@@ -1,13 +1,14 @@
-import numpy as np
 import py_trees
 import py_trees.console as console
-from py_trees import common
 from .bt_viz import Visualization
 from .bt_conflict_handler import ConflictHandler
 from .bt_communicator import Communicator
-from .quad_geom import Rectangle, QuadTree, Point
-from .data_compression import maximize_entropy_subset
+from .quad_geom import Rectangle, QuadTree
+from .bt_learner import Learner
+from .bt_planner import Planner
+from .bt_explorer import Explorer
 import subprocess
+
 def save_dot_tree(root):
     level = "component"
     enum_level = py_trees.common.string_to_visibility_level(level)
@@ -28,80 +29,8 @@ def save_dot_tree(root):
 
 
 
-
-class Learner(py_trees.behaviour.Behaviour):
-    def __init__(self, robot, rng, model, evaluator, sensor, name):
-        self.robot = robot
-        self.rng = rng
-        self.model = model
-        self.evaluator = evaluator
-        self.sensor = sensor
-        self.parent_name = name
-        self.max_samples = 20
-        super().__init__(f"{name}/learner")
-
-
-    def update(self) -> common.Status:
-        # print("learning ...")
-        x_new = self.robot.commit_data()
-        y_raw = self.sensor.sense(x_new, self.rng)
-        y_new = y_raw.reshape(-1, 1)
-        if len(y_new) > self.max_samples:
-            msg = f"[{self.name}]: compressing data from original {len(y_new)} samples to {self.max_samples} samples"
-            console.info(console.red + msg + console.reset)
-
-            selected_index = maximize_entropy_subset(np.squeeze(y_new), self.max_samples)
-            y_new = np.array([y_new[index] for index in selected_index if index is not None])
-            x_new = np.array([x_new[index] for index in selected_index if index is not None])
-
-        try:
-            self.model.add_data(x_new, y_new)
-            self.model.optimize(num_iter=len(y_new), verbose=False)
-        except:
-            return self.status.FAILURE
-        mean, std, error = self.evaluator.eval_prediction(self.model)
-        msg = f"[{self.name}]:  gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {np.mean(error):.3f}"
-        self.logger.debug(msg)
-        # console.info(console.cyan + f"[{self.name}]: {msg}" + console.reset)
-
-        return self.status.SUCCESS
-
-
-class Explorer(py_trees.behaviour.Behaviour):
-    def __init__(self, robot, explorationTree, pub, name):
-        self.robot = robot
-        self.pub = pub
-        self.explorationTree = explorationTree
-        super().__init__(f"{name}/explorer")
-        self.parent_name = name
-        self.dt = 0.001
-
-    def update(self):
-        if self.robot.has_goal:
-            self.robot.update(*self.robot.control())
-            state = self.robot.state
-            control = self.robot.control_input
-            self.pub.set("/%s/state" % self.parent_name, f"{state[0]},{state[1]},{state[2]},{control[0]},{control[1]}")
-            p = Point(state[0], state[1])
-            self.explorationTree.insert(p)
-            return self.status.RUNNING
-        return self.status.SUCCESS
-
-class Planner(py_trees.behaviour.Behaviour):
-    def __init__(self, model, strategy, explorationTree, name):
-        self.model = model
-        self.strategy = strategy
-        self.explorationTree = explorationTree
-        super().__init__(f"{name}/planner")
-
-    def update(self):
-        # print("planning ...")
-        self.strategy(exploration_tree=self.explorationTree)
-        self.strategy.get(model=self.model)
-        return self.status.SUCCESS
-
 class Agent(py_trees.behaviour.Behaviour):
-    def __init__(self,rng, model, strategy, sensor, evaluator, task_extent, robotID):
+    def __init__(self,rng, model, strategy, sensor, evaluator, task_extent, robotID, exp_logger):
         self.rng = rng
         self.model = model
         self.strategy = strategy
@@ -112,6 +41,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.stepCount = 0
         self.robot_radius = 0.5
         self.taskExtent = task_extent
+        self.exp_logger = exp_logger
         name = "RIG%03d" % self.robotID
         super().__init__(name)
 
@@ -144,7 +74,7 @@ class Agent(py_trees.behaviour.Behaviour):
 
         conflict_handler = ConflictHandler(self.strategy, neighbors, self.robot_radius, self.taskExtent, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
-        learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
+        learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name, self.exp_logger)
         explorer = Explorer(self.robot, self.explorationTree, self.pub, self.name)
         planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
 

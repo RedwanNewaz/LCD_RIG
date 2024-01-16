@@ -125,6 +125,12 @@ def parse_arguments(verbose=True):
                         type=float,
                         default=1e-6,
                         help="Small positive value for numerical stability.")
+
+    parser.add_argument("--num-agents",
+                        type=int,
+                        default=3,
+                        help="Number of agents in the team")
+
     args = parser.parse_args()
     if verbose:
         print(parser.format_values())
