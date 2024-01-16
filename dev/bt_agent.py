@@ -30,7 +30,7 @@ def save_dot_tree(root):
 
 
 class Agent(py_trees.behaviour.Behaviour):
-    def __init__(self,rng, model, strategy, sensor, evaluator, task_extent, robotID):
+    def __init__(self,rng, model, strategy, sensor, evaluator, task_extent, robotID, exp_logger):
         self.rng = rng
         self.model = model
         self.strategy = strategy
@@ -41,6 +41,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.stepCount = 0
         self.robot_radius = 0.5
         self.taskExtent = task_extent
+        self.exp_logger = exp_logger
         name = "RIG%03d" % self.robotID
         super().__init__(name)
 
@@ -73,7 +74,7 @@ class Agent(py_trees.behaviour.Behaviour):
 
         conflict_handler = ConflictHandler(self.strategy, neighbors, self.robot_radius, self.taskExtent, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
-        learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name)
+        learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name, self.exp_logger)
         explorer = Explorer(self.robot, self.explorationTree, self.pub, self.name)
         planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
 

@@ -123,16 +123,19 @@ def run(args, agents, sensor):
 
 
     simStep = 0
-    while simStep < 10000:
+    # This loop will when each robot will move towards its goal location
+    while simStep < args.num_train_iter * args.num_agents:
         behaviour_tree.tick()
         if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
             print('terminated prematurely')
             break
         simStep += 1
 
+    print("[+] training finished")
 
 
-def save(args, evaluator, logger):
+
+def save(args, evaluator, logger, agentID):
     print("Saving metrics and logged data......")
     experiment_id = "/".join([
         str(args.seed),
@@ -140,7 +143,7 @@ def save(args, evaluator, logger):
         args.strategy,
         args.kernel + args.postfix,
     ])
-    save_dir = args.output_dir + experiment_id
+    save_dir = args.output_dir + experiment_id + f"/{agentID}"
     evaluator.save(save_dir)
     logger.save(save_dir)
 
@@ -188,23 +191,25 @@ def main():
     env = pypolo.experiments.environments.get_environment(
         args.env_name, data_path)
     sensor = get_sensor(args, env)
-    num_agents = 3
-    Xinits = get_robots_init_locs(args.env_extent, num_agents)
+
+    Xinits = get_robots_init_locs(args.env_extent, args.num_agents)
     gpModels = get_gp_models(args, sensor, rng, Xinits)
     robots = [get_robot(x_init, args) for x_init in Xinits]
     agents = []
-    for i in range(num_agents):
+    for i in range(args.num_agents):
         robot = robots[i]
         model = gpModels[i]
         evaluator = get_evaluator(args, sensor)
         strategy = get_strategy(args, rng, robot)
-        agent = Agent(rng, model, strategy, sensor, evaluator, args.task_extent, i + 1)
+        exp_logger = pypolo.experiments.Logger(evaluator.eval_outputs)
+        agent = Agent(rng, model, strategy, sensor, evaluator, args.task_extent, i + 1, exp_logger)
         agents.append(agent)
 
     start = time()
     run(args, agents, sensor)
     end = time()
-    # save(args, evaluator, logger)
+    for i, agent in enumerate(agents):
+        save(args, agent.evaluator, agent.exp_logger, f"agent{i+1}")
     print(f"Time used: {end - start:.1f} seconds")
 
 

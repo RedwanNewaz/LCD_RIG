@@ -17,6 +17,7 @@ lcdrig()
   $PYTHON $PY_FILE  --config "AK/experiments/configs/ak.yaml" \
     --env-name "N45W123" \
     --strategy "distributed" \
+    --num-agents 4 \
     --seed 1
 }
 
