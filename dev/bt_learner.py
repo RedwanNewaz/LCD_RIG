@@ -42,7 +42,7 @@ class Learner(py_trees.behaviour.Behaviour):
         if self.exp_logger is not None:
             self.exp_logger.append(mean, std, error, x_new, y_new, self.model.num_train)
 
-        rmse = np.sqrt(np.mean(error))
+        rmse = np.sqrt(np.mean(np.square(error)))
         msg = f"[{self.name}]:  gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {rmse:.3f}"
         self.logger.debug(msg)
         console.info(console.cyan + f"[{self.name}]: {msg}" + console.reset)
