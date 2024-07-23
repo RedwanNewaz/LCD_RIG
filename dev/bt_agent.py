@@ -47,6 +47,7 @@ class Agent(py_trees.behaviour.Behaviour):
 
         self.pub = py_trees.blackboard.Client(name=name, namespace=name)
         self.pub.register_key(key="/%s/state" % self.name , access=py_trees.common.Access.WRITE)
+        self.pub.register_key(key="/%s/rmse" % self.name, access=py_trees.common.Access.WRITE)
 
         self.boundary = Rectangle(task_extent[0], task_extent[2], task_extent[1] - task_extent[0],
                                   task_extent[3] - task_extent[2])
@@ -74,7 +75,7 @@ class Agent(py_trees.behaviour.Behaviour):
 
         conflict_handler = ConflictHandler(self.strategy, neighbors, self.robot_radius, self.taskExtent, self.name)
         communicator = Communicator(self.strategy, neighbors, self.robot_radius, self.name)
-        learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name, self.exp_logger)
+        learner = Learner(self.robot, self.rng, self.model, self.evaluator, self.sensor,  self.name, self.exp_logger, self.pub)
         explorer = Explorer(self.robot, self.explorationTree, self.pub, self.name)
         planner = Planner(self.model, self.strategy, self.explorationTree, self.name)
 

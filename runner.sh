@@ -15,10 +15,27 @@ lcdrig()
 {
   PY_FILE="main_lcd_rig.py"
   $PYTHON $PY_FILE  --config "AK/experiments/configs/ak.yaml" \
-    --env-name "N45W123" \
     --strategy "distributed" \
-    --num-agents 4 \
+    --num-agents $1 \
+    --version $2 \
+    --env-name $3 \
     --seed 2
 }
 
-lcdrig
+#lcdrig
+ITERATIONS=(0 1 2)
+NUM_AGENTS=(3 4 5)
+
+ENVS=("N47W124" "N43W080")
+
+for j in ${ITERATIONS[@]}
+do
+  for i in ${NUM_AGENTS[@]}
+  do
+    for env in ${ENVS[@]}
+    do
+      echo "[+] exp $env running with version $j with num agents $i"
+      lcdrig $i $j $env
+    done
+  done
+done

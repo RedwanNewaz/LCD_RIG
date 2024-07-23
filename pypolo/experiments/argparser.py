@@ -8,6 +8,7 @@ def parse_arguments(verbose=True):
                         is_config_file=True,
                         help="Configuration file path.")
     # Experiment settings
+    parser.add_argument("--version", type=int, default=0, help="experiment version.")
     parser.add_argument("--seed", type=int, default=0, help="Random seed.")
     parser.add_argument("--env-name",
                         type=str,

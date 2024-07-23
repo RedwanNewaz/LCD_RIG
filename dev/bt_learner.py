@@ -5,7 +5,7 @@ from py_trees import common
 from .data_compression import maximize_entropy_subset
 
 class Learner(py_trees.behaviour.Behaviour):
-    def __init__(self, robot, rng, model, evaluator, sensor, name, exp_logger):
+    def __init__(self, robot, rng, model, evaluator, sensor, name, exp_logger, pub):
         self.robot = robot
         self.rng = rng
         self.model = model
@@ -14,7 +14,9 @@ class Learner(py_trees.behaviour.Behaviour):
         self.parent_name = name
         self.max_samples = 20
         self.exp_logger = exp_logger
+        self.pub = pub
         super().__init__(f"{name}/learner")
+
 
 
     def update(self) -> common.Status:
@@ -39,8 +41,11 @@ class Learner(py_trees.behaviour.Behaviour):
 
         if self.exp_logger is not None:
             self.exp_logger.append(mean, std, error, x_new, y_new, self.model.num_train)
-        msg = f"[{self.name}]:  gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {np.mean(error):.3f}"
+
+        rmse = np.sqrt(np.mean(error))
+        msg = f"[{self.name}]:  gp = {np.mean(mean):.3f} +/- {np.mean(std):.3f} | err {rmse:.3f}"
         self.logger.debug(msg)
-        # console.info(console.cyan + f"[{self.name}]: {msg}" + console.reset)
+        console.info(console.cyan + f"[{self.name}]: {msg}" + console.reset)
+        self.pub.set("/%s/rmse" % self.parent_name, f"{rmse}")
 
         return self.status.SUCCESS

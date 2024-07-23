@@ -5,6 +5,8 @@ import pypolo
 import numpy as np
 import subprocess
 import py_trees.console as console
+import csv
+import os
 
 import py_trees
 from dev.bt_agent import Agent, Visualization, save_dot_tree
@@ -97,7 +99,7 @@ def run(args, agents, sensor):
     ####################
     # create tree
     ####################
-    viz = Visualization(args.env_extent, args.task_extent, sensor, show_animation=True)
+    viz = Visualization(args.env_extent, args.task_extent, sensor, args.num_agents, show_animation=True)
 
     root = py_trees.composites.Parallel(
         name="LCD-RIG",
@@ -124,14 +126,40 @@ def run(args, agents, sensor):
 
     simStep = 0
     # This loop will when each robot will move towards its goal location
-    while simStep < args.num_train_iter * args.num_agents:
+    max_sim_steps = 3500 # args.num_train_iter * args.num_agents
+    while simStep < max_sim_steps:
         behaviour_tree.tick()
         if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
             print('terminated prematurely')
             break
-        simStep += 1
+        # simStep += 1
+        simStep = viz.step_count
 
     print("[+] training finished")
+    experiment_id = "/".join([
+        str(args.seed),
+        args.env_name,
+        args.strategy,
+        args.kernel + args.postfix,
+    ])
+
+    # Writing to CSV file
+    os.makedirs(args.output_dir + experiment_id, exist_ok=True)
+    csv_file = args.output_dir + experiment_id + f"_team{args.num_agents}_log_v{args.version}.csv"
+    with open(csv_file, mode='w', newline='') as file:
+        writer = csv.writer(file)
+
+        # Writing the header (keys of the defaultdict)
+        header = list(viz.history.keys())
+        writer.writerow(header)
+
+        # Writing the rows (key-value pairs)
+        values = list(viz.history.values())
+        N = len(values[0])
+        for i in range(N):
+            row = [val[i] for val in values]
+            writer.writerow(row)
+
 
 
 

@@ -2,9 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.patches import Circle
 import py_trees
+import re
+from collections import defaultdict
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
-    def __init__(self, env_extent, task_extent, sensor, show_animation=True):
+    def __init__(self, env_extent, task_extent, sensor, num_agents, show_animation=True):
         super().__init__(self.name)
         self.env_extent = env_extent
         self.task_extent = task_extent
@@ -14,6 +16,8 @@ class Visualization(py_trees.behaviour.Behaviour):
         self.communication_radius = 4
         self.collision_radius = 2
         self.show_animation = show_animation
+        self.num_agents = num_agents
+        self.history = defaultdict(list)
         self.grid_map = self.generate_grid_map(task_extent, self.robot_radius)
 
     def generate_grid_map(self, task_extent, cell_size):
@@ -64,6 +68,7 @@ class Visualization(py_trees.behaviour.Behaviour):
 
     def update(self):
         state = self.decode()
+        rmses = self.get_rmse()
         plt.cla()
         plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
                    extent=self.env_extent)
@@ -106,7 +111,12 @@ class Visualization(py_trees.behaviour.Behaviour):
 
         coverage = self.compute_coverage()
         if self.show_animation:
-            plt.title(f"coverage = {coverage:.4f}")
+            if len(rmses) == self.num_agents:
+                avg_rmse = np.average(list(rmses.values()))
+                plt.title(f" step = {self.step_count} coverage = {coverage:.4f} avg rmse = {avg_rmse:.4f}")
+                self.history["step"].append(self.step_count )
+                self.history["coverage"].append(coverage)
+                self.history["avg_rmse"].append(avg_rmse)
             plt.axis(self.env_extent)
             plt.pause(1e-2)
         self.step_count += 1
@@ -155,4 +165,35 @@ class Visualization(py_trees.behaviour.Behaviour):
             except:
                 pass
         # Print the resulting dictionary
+        return data_dict
+
+    @staticmethod
+    def get_rmse():
+        input_string = py_trees.display.unicode_blackboard()
+        # Split the input string into lines
+        lines = input_string.strip().split('\n')
+
+        # Initialize an empty dictionary
+        data_dict = {}
+
+        if len(input_string) < 1:
+            return data_dict
+
+        # Iterate through each line and extract key-value pairs
+        for line in lines:
+
+            if ":" not in line or "rmse" not in line:
+                continue
+
+            # Pattern to find integers and floating-point numbers
+            pattern = r'\d+\.\d+|\d+'
+
+            # Find all numbers in the string
+            numbers = re.findall(pattern, line)
+
+            # Convert the list of strings to a list of floats
+            numbers = list(map(float, numbers))
+            # rmse [0.0, 0.0, 36.0, 3.0, 37.0, 33.0, 4.976662259431621]
+            # print("rmse", numbers)
+            data_dict[int(numbers[3])] = numbers[-1]
         return data_dict
