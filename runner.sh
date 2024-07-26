@@ -19,16 +19,16 @@ lcdrig()
     --num-agents $1 \
     --version $2 \
     --env-name $3 \
-    --seed 2024
+    --seed 2025
 }
 
 #lcdrig
-ITERATIONS=(0 1 2)
+# ITERATIONS=(0 1 2)
 NUM_AGENTS=(3 4 5)
 
-ENVS=("N43W080" "N45W123" "N47W124")
-
-for j in ${ITERATIONS[@]}
+#ENVS=("N43W080" "N45W123" "N47W124")
+ENVS=("temp_data" )
+for j in {0..15}
 do
   for i in ${NUM_AGENTS[@]}
   do
