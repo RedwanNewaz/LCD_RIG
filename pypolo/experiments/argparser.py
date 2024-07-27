@@ -132,6 +132,9 @@ def parse_arguments(verbose=True):
                         default=3,
                         help="Number of agents in the team")
 
+    # save_video
+    parser.add_argument('--save-video', action='store_true')
+    parser.add_argument('--show-animation', action='store_true')
     args = parser.parse_args()
     if verbose:
         print(parser.format_values())

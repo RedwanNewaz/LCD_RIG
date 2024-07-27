@@ -1,3 +1,5 @@
+import os.path
+
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import numpy as np
@@ -12,19 +14,29 @@ camera_up = (-0.07, 0.78, 0.63)
 
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
-    def __init__(self, env_extent, task_extent, sensor, num_agents, show_animation=True):
+    def __init__(self, args, sensor):
+
         super().__init__(self.name)
-        self.env_extent = env_extent
-        self.task_extent = task_extent
+        self.env_extent = args.env_extent
+        self.task_extent = args.task_extent
         self.sensor = sensor
         self.step_count = 0
         self.robot_radius = 0.5
         self.communication_radius = 4
         self.collision_radius = 2
-        self.show_animation = show_animation
-        self.num_agents = num_agents
+        self.show_animation = args.show_animation
+        self.save_video = args.save_video
+        experiment_id = "/".join([
+            str(args.seed),
+            args.env_name,
+            args.strategy,
+            args.kernel + args.postfix,
+        ])
+        self.outfolder = args.output_dir + experiment_id + f"_team{args.num_agents}_animation_v{args.version}"
+        os.makedirs(self.outfolder, exist_ok=True)
+        self.num_agents = args.num_agents
         self.history = defaultdict(list)
-        self.grid_map = self.generate_grid_map(task_extent, self.robot_radius)
+        self.grid_map = self.generate_grid_map(args.task_extent, self.robot_radius)
 
     def generate_grid_map(self, task_extent, cell_size):
         # Extract rectangle properties
@@ -75,7 +87,7 @@ class Visualization(py_trees.behaviour.Behaviour):
     def update(self):
         state = self.decode()
         rmses = self.get_rmse()
-        if self.show_animation:
+        if self.show_animation or self.save_video:
             plt.cla()
             plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
                        extent=self.env_extent)
@@ -93,7 +105,7 @@ class Visualization(py_trees.behaviour.Behaviour):
                     robot = np.array([value[0], value[1]])
                     robots = np.vstack((robots, robot))
                     self.update_grid_map(robot[0], robot[1])
-                    if self.show_animation:
+                    if self.show_animation or self.save_video:
                         scatter = plt.scatter(value[0], value[1], s=100, alpha=1.0)
                         # Plotting vectors
                         dt = 0.25
@@ -111,19 +123,19 @@ class Visualization(py_trees.behaviour.Behaviour):
                 if i != j:
                     dist = np.linalg.norm(robots[i] - robots[j])
                     if dist < 2 * self.robot_radius:
-                        if self.show_animation:
+                        if self.show_animation or self.save_video:
                             ax = plt.gca()
                             redCircle = Circle( (robots[i][0], robots[i][1]), self.collision_radius * self.robot_radius, color='red', alpha=0.4)
                             ax.add_patch(redCircle)
                         isCollision = True
                     elif dist < 4 * self.robot_radius:
-                        if self.show_animation:
+                        if self.show_animation or self.save_video:
                             ax = plt.gca()
                             greenCircle = Circle((robots[i][0], robots[i][1]), self.communication_radius * self.robot_radius, color='green', alpha=0.4)
                             ax.add_patch(greenCircle)
 
         coverage = self.compute_coverage()
-        if self.show_animation:
+        if self.show_animation or self.save_video:
             if len(rmses) == self.num_agents:
                 avg_rmse = np.average(list(rmses.values()))
                 plt.title(f" step = {self.step_count} coverage = {coverage:.4f} avg rmse = {avg_rmse:.4f}")
@@ -131,7 +143,11 @@ class Visualization(py_trees.behaviour.Behaviour):
                 self.history["coverage"].append(coverage)
                 self.history["avg_rmse"].append(avg_rmse)
             plt.axis(self.env_extent)
+        if self.show_animation:
             plt.pause(1e-2)
+        elif self.save_video:
+            outfile = os.path.join(self.outfolder, "%04d.png" % self.step_count)
+            plt.savefig(outfile)
         self.step_count += 1
         print(f"coverage = {coverage:.4f}", flush=True, end="\r")
         # return self.status.SUCCESS if not
