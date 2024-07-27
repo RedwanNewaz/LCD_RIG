@@ -1,15 +1,9 @@
 import matplotlib.pyplot as plt
-from matplotlib.colors import ListedColormap
 import numpy as np
 from matplotlib.patches import Circle
 import py_trees
 import re
 from collections import defaultdict
-# camera
-camera_position = (30, -82.6, 116.2)
-camera_focal_point = (-4.25, 4.33, 2.12)
-camera_up = (-0.07, 0.78, 0.63)
-
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
     def __init__(self, env_extent, task_extent, sensor, num_agents, show_animation=True):
@@ -59,7 +53,7 @@ class Visualization(py_trees.behaviour.Behaviour):
         j = (cell_center_x - xmin  - self.robot_radius / 2) / self.robot_radius
         i = (cell_center_y - ymin  - self.robot_radius / 2) / self.robot_radius
 
-        i, j = np.floor(i).astype(int), np.floor(j).astype(int)
+        i, j = int(i), int(j)
 
         # Check if the cell center is inside the rectangle
         if xmin <= cell_center_x <= (xmin + width) and ymin <= cell_center_y <= (ymin + height):
@@ -75,16 +69,9 @@ class Visualization(py_trees.behaviour.Behaviour):
     def update(self):
         state = self.decode()
         rmses = self.get_rmse()
-        if self.show_animation:
-            plt.cla()
-            plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
-                       extent=self.env_extent)
-            # mask
-            cmap = ListedColormap(['black', 'white'])
-            alpha = np.where(self.grid_map == 1, 0, 1).astype(np.float32)
-            data = self.grid_map.copy()
-            plt.imshow(data, cmap=cmap, alpha=alpha, extent=self.env_extent)
-
+        plt.cla()
+        plt.imshow(self.sensor.env.matrix, cmap=plt.cm.gray, interpolation='nearest',
+                   extent=self.env_extent)
 
         robots = np.zeros((0, 2))
         for robotName, val in state.items():
@@ -207,9 +194,6 @@ class Visualization(py_trees.behaviour.Behaviour):
             # Convert the list of strings to a list of floats
             numbers = list(map(float, numbers))
             # rmse [0.0, 0.0, 36.0, 3.0, 37.0, 33.0, 4.976662259431621]
-            # print("rmse", len(numbers), numbers)
-            if len(numbers) == 2:
-                data_dict[int(numbers[0])] = numbers[-1]
-            elif len(numbers) == 7:
-                data_dict[int(numbers[3])] = numbers[-1]
+            # print("rmse", numbers)
+            data_dict[int(numbers[3])] = numbers[-1]
         return data_dict

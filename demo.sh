@@ -28,14 +28,11 @@ NUM_AGENTS=(3 4 5)
 
 #ENVS=("N43W080" "N45W123" "N47W124")
 ENVS=("temp_data" )
-for j in {0..15}
-do
-  for i in ${NUM_AGENTS[@]}
-  do
-    for env in ${ENVS[@]}
-    do
-      echo "[+] exp $env running with version $j with num agents $i"
-      lcdrig $i $j $env
-    done
-  done
-done
+
+lcdrig 3 0 "N45W123"
+#pip install --upgrade numpy scikit-image
+#pip install numpy==1.26.4
+
+#  $PYTHON $PY_FILE  --config "AK/experiments/configs/ak.yaml" --strategy "distributed" --num-agents 3 --version 0 --env-name "N45W123" --seed 3525
+
+$PYTHON $PY_FILE --config "AK/experiments/configs/ak.yaml" --strategy "distributed" --num-agents 3 --version 0 --env-name "N45W123" --seed 3525
