@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 PYTHON="/home/redwan/anaconda3/envs/rig/bin/python"
-PYTHON="/home/redwan/anaconda3/bin/python"
+PYTHON="/home/airlab/anaconda3/envs/LCD_RIG/bin/python"
 
 srig()
 {

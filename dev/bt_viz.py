@@ -38,6 +38,9 @@ class Visualization(py_trees.behaviour.Behaviour):
         self.history = defaultdict(list)
         self.grid_map = self.generate_grid_map(args.task_extent, self.robot_radius)
 
+        if self.save_video:
+            plt.figure(figsize=(6,6), dpi=300)
+
     def generate_grid_map(self, task_extent, cell_size):
         # Extract rectangle properties
         xmin, xmax, ymin, ymax = task_extent
@@ -71,7 +74,8 @@ class Visualization(py_trees.behaviour.Behaviour):
         j = (cell_center_x - xmin  - self.robot_radius / 2) / self.robot_radius
         i = (cell_center_y - ymin  - self.robot_radius / 2) / self.robot_radius
 
-        i, j = np.floor(i).astype(int), np.floor(j).astype(int)
+        i, j = int(i), int(j)
+        # i, j = np.floor(i).astype(int), np.floor(j).astype(int)
 
         # Check if the cell center is inside the rectangle
         if xmin <= cell_center_x <= (xmin + width) and ymin <= cell_center_y <= (ymin + height):
@@ -104,7 +108,7 @@ class Visualization(py_trees.behaviour.Behaviour):
                 if isinstance(value, list) and key == 'state':
                     robot = np.array([value[0], value[1]])
                     robots = np.vstack((robots, robot))
-                    self.update_grid_map(robot[0], robot[1])
+                    self.update_grid_map(robot[0].copy(), robot[1].copy())
                     if self.show_animation or self.save_video:
                         scatter = plt.scatter(value[0], value[1], s=100, alpha=1.0)
                         # Plotting vectors
@@ -138,7 +142,7 @@ class Visualization(py_trees.behaviour.Behaviour):
         if self.show_animation or self.save_video:
             if len(rmses) == self.num_agents:
                 avg_rmse = np.average(list(rmses.values()))
-                plt.title(f" step = {self.step_count} coverage = {coverage:.4f} avg rmse = {avg_rmse:.4f}")
+                plt.title(f" Step = {self.step_count}, Coverage = {coverage:.4f}, Avg. RMSE = {avg_rmse:.4f}")
                 self.history["step"].append(self.step_count )
                 self.history["coverage"].append(coverage)
                 self.history["avg_rmse"].append(avg_rmse)
@@ -149,7 +153,7 @@ class Visualization(py_trees.behaviour.Behaviour):
             outfile = os.path.join(self.outfolder, "%04d.png" % self.step_count)
             plt.savefig(outfile)
         self.step_count += 1
-        print(f"coverage = {coverage:.4f}", flush=True, end="\r")
+        print(f"coverage = {coverage:.4f}",  f"sim steps = {self.step_count}", flush=True, end="\r")
         # return self.status.SUCCESS if not
         return self.status.SUCCESS if not isCollision else self.status.FAILURE
 
@@ -226,6 +230,6 @@ class Visualization(py_trees.behaviour.Behaviour):
             # print("rmse", len(numbers), numbers)
             if len(numbers) == 2:
                 data_dict[int(numbers[0])] = numbers[-1]
-            elif len(numbers) == 7:
+            else:
                 data_dict[int(numbers[3])] = numbers[-1]
         return data_dict
