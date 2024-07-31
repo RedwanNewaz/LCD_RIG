@@ -126,7 +126,7 @@ def run(args, agents, sensor):
 
     simStep = 0
     # This loop will when each robot will move towards its goal location
-    max_sim_steps = 3500 # args.num_train_iter * args.num_agents
+    max_sim_steps = 2500 # args.num_train_iter * args.num_agents
     while simStep < max_sim_steps:
         behaviour_tree.tick()
         if behaviour_tree.root.status == py_trees.common.Status.FAILURE:
@@ -143,6 +143,12 @@ def run(args, agents, sensor):
         args.kernel + args.postfix,
     ])
 
+    # save pickle file
+    import pickle
+    file_path = args.output_dir + experiment_id + f"_team{args.num_agents}_path_v{args.version}.pkl"
+    # Save the defaultdict to a pickle file
+    with open(file_path, 'wb') as file:
+        pickle.dump(viz.history_robot_states, file)
     # Writing to CSV file
     os.makedirs(args.output_dir + experiment_id, exist_ok=True)
     csv_file = args.output_dir + experiment_id + f"_team{args.num_agents}_log_v{args.version}.csv"
@@ -230,7 +236,7 @@ def main():
         evaluator = get_evaluator(args, sensor)
         strategy = get_strategy(args, rng, robot)
         exp_logger = pypolo.experiments.Logger(evaluator.eval_outputs)
-        agent = Agent(rng, model, strategy, sensor, evaluator, args.task_extent, i + 1, exp_logger)
+        agent = Agent(rng, model, strategy, sensor, evaluator, args.task_extent, i + 1, exp_logger, args.robot_radius)
         agents.append(agent)
 
     start = time()

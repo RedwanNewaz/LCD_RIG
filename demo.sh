@@ -33,8 +33,13 @@ ENVS=("temp_data" )
 #pip install numpy==1.26.4
 
 #  $PYTHON $PY_FILE  --config "AK/experiments/configs/ak.yaml" --strategy "distributed" --num-agents 3 --version 0 --env-name "N45W123" --seed 3525
-PY_FILE="main_lcd_rig.py"
-$PYTHON $PY_FILE --config "AK/experiments/configs/ak.yaml" --strategy "distributed" --num-agents 3 --version 1 --env-name "N45W123" --seed 3525 --save-video
+#PY_FILE="main_lcd_rig.py"
+#$PYTHON $PY_FILE --config "AK/experiments/configs/ak.yaml" --strategy "distributed" --num-agents 3 --version 1 --env-name "temp_data" --seed 3555 --show-animation
 
 # cd "/home/airlab/PycharmProjects/LCD_RIG/outputs/3525/N45W123/distributed/"
 # ./make_video.sh $(pwd)
+
+PY_FILE="main_lcd_rig.py"
+$PYTHON $PY_FILE --config "AK/experiments/configs/ak_exp.yaml" \
+  --strategy "distributed" --num-agents 3 --version 1  --robot-radius 1.7\
+  --env-name "temp_data" --seed 3560 --save-video

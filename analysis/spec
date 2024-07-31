@@ -1,0 +1,11 @@
+ere are the coordinates for the ROI in the lake (area of approx 900 m^2):
+
+25.7581072, -80.3738942
+25.7581072, -80.3734494
+25.7583659, -80.3734494
+25.7583659, -80.3738942
+
+o convert the given latitude and longitude coordinates into a metric domain (e.g., meters), you can use the Universal Transverse Mercator (UTM) coordinate system. The pyproj library in Python is useful for this kind of conversion. Here’s how you can achieve this:
+
+Install the pyproj library if you haven't already:
+pip install pyproj

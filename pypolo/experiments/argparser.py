@@ -132,6 +132,11 @@ def parse_arguments(verbose=True):
                         default=3,
                         help="Number of agents in the team")
 
+    parser.add_argument("--robot-radius",
+                        type=float,
+                        default=0.5,
+                        help="radius of the robot for collision checking.")
+
     # save_video
     parser.add_argument('--save-video', action='store_true')
     parser.add_argument('--show-animation', action='store_true')

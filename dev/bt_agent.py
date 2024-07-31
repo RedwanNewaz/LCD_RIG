@@ -30,7 +30,7 @@ def save_dot_tree(root):
 
 
 class Agent(py_trees.behaviour.Behaviour):
-    def __init__(self,rng, model, strategy, sensor, evaluator, task_extent, robotID, exp_logger):
+    def __init__(self,rng, model, strategy, sensor, evaluator, task_extent, robotID, exp_logger, robot_radius):
         self.rng = rng
         self.model = model
         self.strategy = strategy
@@ -39,7 +39,7 @@ class Agent(py_trees.behaviour.Behaviour):
         self.evaluator = evaluator
         self.robotID = robotID
         self.stepCount = 0
-        self.robot_radius = 0.5
+        self.robot_radius = robot_radius
         self.taskExtent = task_extent
         self.exp_logger = exp_logger
         name = "RIG%03d" % self.robotID

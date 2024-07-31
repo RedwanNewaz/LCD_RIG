@@ -7,10 +7,7 @@ from matplotlib.patches import Circle
 import py_trees
 import re
 from collections import defaultdict
-# camera
-camera_position = (30, -82.6, 116.2)
-camera_focal_point = (-4.25, 4.33, 2.12)
-camera_up = (-0.07, 0.78, 0.63)
+
 
 class Visualization(py_trees.behaviour.Behaviour):
     name = "visualization"
@@ -36,6 +33,7 @@ class Visualization(py_trees.behaviour.Behaviour):
         os.makedirs(self.outfolder, exist_ok=True)
         self.num_agents = args.num_agents
         self.history = defaultdict(list)
+        self.history_robot_states = defaultdict(list)
         self.grid_map = self.generate_grid_map(args.task_extent, self.robot_radius)
 
         if self.save_video:
@@ -109,6 +107,7 @@ class Visualization(py_trees.behaviour.Behaviour):
                     robot = np.array([value[0], value[1]])
                     robots = np.vstack((robots, robot))
                     self.update_grid_map(robot[0].copy(), robot[1].copy())
+                    self.history_robot_states[robotName].append(robot.copy())
                     if self.show_animation or self.save_video:
                         scatter = plt.scatter(value[0], value[1], s=100, alpha=1.0)
                         # Plotting vectors
