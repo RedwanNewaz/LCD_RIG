@@ -155,7 +155,7 @@ def run(args, agents, sensor):
 
         # Writing the rows (key-value pairs)
         values = list(viz.history.values())
-        N = len(values[0])
+        N = len(values[0]) if values else 0
         for i in range(N):
             row = [val[i] for val in values]
             writer.writerow(row)

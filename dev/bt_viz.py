@@ -218,18 +218,16 @@ class Visualization(py_trees.behaviour.Behaviour):
             if ":" not in line or "rmse" not in line:
                 continue
 
-            # Pattern to find integers and floating-point numbers
-            pattern = r'\d+\.\d+|\d+'
+            # Strip ANSI color codes that py_trees adds to the rendered blackboard
+            line = re.sub(r'\x1b\[[0-9;]*m', '', line)
 
-            # Find all numbers in the string
-            numbers = re.findall(pattern, line)
+            # Split each line into key and value
+            key, value = map(str.strip, line.split(':', 1))
 
-            # Convert the list of strings to a list of floats
-            numbers = list(map(float, numbers))
-            # rmse [0.0, 0.0, 36.0, 3.0, 37.0, 33.0, 4.976662259431621]
-            # print("rmse", len(numbers), numbers)
-            if len(numbers) == 2:
-                data_dict[int(numbers[0])] = numbers[-1]
-            else:
-                data_dict[int(numbers[3])] = numbers[-1]
+            # Extract agent ID from the key, e.g. "/RIG000/rmse" -> "RIG000"
+            try:
+                agent_id = key.split('/')[1].strip()
+                data_dict[agent_id] = float(value)
+            except (IndexError, ValueError):
+                continue
         return data_dict

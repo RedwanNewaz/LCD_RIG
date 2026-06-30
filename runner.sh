@@ -22,7 +22,8 @@ lcdrig()
     --seed 2025
 }
 
-#lcdrig
+benchmark(){
+  #lcdrig
 # ITERATIONS=(0 1 2)
 NUM_AGENTS=(3 4 5)
 
@@ -39,3 +40,12 @@ do
     done
   done
 done
+}
+
+uv run python main_lcd_rig.py --config "AK/experiments/configs/ak.yaml" \
+    --strategy "distributed" \
+    --num-agents 3 \
+    --version 04 \
+    --env-name N45W123 \
+    --seed 2026 \
+    --show-animation

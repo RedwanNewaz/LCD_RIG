@@ -110,8 +110,8 @@ class DistributedPlanning(IStrategy):
             diffs = candidate_states - self.robot.state[:2]
             dists = np.hypot(diffs[:, 0], diffs[:, 1])
             # Normalized scores
-            normed_entropy = (entropy - entropy.min()) / entropy.ptp()
-            normed_dists = (dists - dists.min()) / dists.ptp()
+            normed_entropy = (entropy - entropy.min()) / np.ptp(entropy)
+            normed_dists = (dists - dists.min()) / np.ptp(dists)
             scores = normed_entropy - normed_dists
             # Append waypoint
             prob = np.random.normal()
